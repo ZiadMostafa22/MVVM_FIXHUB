@@ -138,16 +138,21 @@ class _NewBookingPageState extends ConsumerState<NewBookingPage> {
     // Allow booking from today onwards
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
+    final lastDate = DateTime.now().add(const Duration(days: 90));
+    final predicate = (DateTime date) => date.weekday != DateTime.friday;
+    
+    // Ensure initialDate satisfies selectableDayPredicate to avoid assertion error
+    DateTime initialDate = today;
+    while (!predicate(initialDate) && initialDate.isBefore(lastDate)) {
+      initialDate = initialDate.add(const Duration(days: 1));
+    }
     
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: today,
+      initialDate: initialDate,
       firstDate: today, // Can book from today
-      lastDate: DateTime.now().add(const Duration(days: 90)),
-      selectableDayPredicate: (DateTime date) {
-        // Disable Fridays (day 5)
-        return date.weekday != DateTime.friday;
-      },
+      lastDate: lastDate,
+      selectableDayPredicate: predicate,
       helpText: 'Select Appointment Date (Closed on Fridays)',
     );
     

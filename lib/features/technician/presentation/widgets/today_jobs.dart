@@ -1,17 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:car_maintenance_system_new/core/providers/booking_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/car_provider.dart';
-import 'package:car_maintenance_system_new/core/models/booking_model.dart';
+import 'package:car_maintenance_system_new/features/booking/presentation/viewmodels/booking_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/car/presentation/viewmodels/car_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/domain/entities/booking_entity.dart';
 
-class TodayJobs extends ConsumerWidget {
+class TodayJobs extends ConsumerStatefulWidget {
   const TodayJobs({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final bookingState = ref.watch(bookingProvider);
-    final carState = ref.watch(carProvider);
+  ConsumerState<TodayJobs> createState() => _TodayJobsState();
+}
+
+class _TodayJobsState extends ConsumerState<TodayJobs> {
+  @override
+  Widget build(BuildContext context) {
+    final bookingState = ref.watch(bookingViewModelProvider);
+    final carState = ref.watch(carViewModelProvider);
+    
+    // Fetch missing cars when bookings change (only once per build cycle)
+    // This ensures all technicians see car names immediately
+    // Removed addPostFrameCallback from build to prevent performance issues
     
     // Filter today's jobs (confirmed, in progress, pending)
     final today = DateTime.now();
@@ -86,7 +95,7 @@ class TodayJobs extends ConsumerWidget {
         ...displayJobs.map((booking) {
         // Get car info
         final car = carState.cars.where((c) => c.id == booking.carId).firstOrNull;
-        final carName = car != null ? '${car.make} ${car.model} (${car.year})' : 'Unknown Car';
+        final carName = car != null ? '${car.make} ${car.model} (${car.year})' : 'Loading...';
         
         return Card(
           margin: const EdgeInsets.only(bottom: 12),

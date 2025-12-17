@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:car_maintenance_system_new/core/providers/auth_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/booking_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/car_provider.dart';
-import 'package:car_maintenance_system_new/core/models/booking_model.dart';
+import 'package:car_maintenance_system_new/features/auth/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/presentation/viewmodels/booking_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/car/presentation/viewmodels/car_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/domain/entities/booking_entity.dart';
 import 'package:car_maintenance_system_new/core/models/offer_model.dart';
 import 'package:car_maintenance_system_new/core/utils/discount_validator.dart';
 
@@ -54,9 +54,9 @@ class _NewBookingPageState extends ConsumerState<NewBookingPage> {
     super.initState();
     // Load user's cars
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final user = ref.read(authProvider).user;
+      final user = ref.read(authViewModelProvider).user;
       if (user != null) {
-        ref.read(carProvider.notifier).loadCars(user.id);
+        ref.read(carViewModelProvider.notifier).loadCars(user.id);
       }
     });
   }
@@ -139,7 +139,7 @@ class _NewBookingPageState extends ConsumerState<NewBookingPage> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final lastDate = DateTime.now().add(const Duration(days: 90));
-    final predicate = (DateTime date) => date.weekday != DateTime.friday;
+    bool predicate(DateTime date) => date.weekday != DateTime.friday;
     
     // Ensure initialDate satisfies selectableDayPredicate to avoid assertion error
     DateTime initialDate = today;
@@ -302,7 +302,7 @@ class _NewBookingPageState extends ConsumerState<NewBookingPage> {
         return;
       }
 
-      final user = ref.read(authProvider).user;
+      final user = ref.read(authViewModelProvider).user;
       if (user == null) {
         print('❌ User is null');
         return;
@@ -323,7 +323,7 @@ class _NewBookingPageState extends ConsumerState<NewBookingPage> {
         _selectedTime!.minute,
       );
 
-      final booking = BookingModel(
+      final booking = BookingEntity(
         id: '',
         userId: user.id,
         carId: _selectedCarId!,
@@ -343,7 +343,7 @@ class _NewBookingPageState extends ConsumerState<NewBookingPage> {
       );
 
       print('📤 Creating booking...');
-      final success = await ref.read(bookingProvider.notifier).createBooking(booking);
+      final success = await ref.read(bookingViewModelProvider.notifier).createBooking(booking);
       print('📥 Booking result: $success');
 
       if (mounted) {
@@ -355,7 +355,7 @@ class _NewBookingPageState extends ConsumerState<NewBookingPage> {
           );
           context.pop();
         } else {
-          final error = ref.read(bookingProvider).error ?? 'Failed to create booking';
+          final error = ref.read(bookingViewModelProvider).error ?? 'Failed to create booking';
           print('❌ Booking failed: $error');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -375,8 +375,8 @@ class _NewBookingPageState extends ConsumerState<NewBookingPage> {
 
   @override
   Widget build(BuildContext context) {
-    final carState = ref.watch(carProvider);
-    final bookingState = ref.watch(bookingProvider);
+    final carState = ref.watch(carViewModelProvider);
+    final bookingState = ref.watch(bookingViewModelProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -518,7 +518,7 @@ class _NewBookingPageState extends ConsumerState<NewBookingPage> {
                                 ),
                                 const SizedBox(height: 8),
                                 DropdownButtonFormField<MaintenanceType>(
-                                  value: _selectedMaintenanceType,
+                                  initialValue: _selectedMaintenanceType,
                                   decoration: const InputDecoration(
                                     labelText: 'Type',
                                     border: OutlineInputBorder(),

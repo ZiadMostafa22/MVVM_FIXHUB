@@ -2,17 +2,45 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
-import 'package:car_maintenance_system_new/core/providers/booking_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/car_provider.dart';
-import 'package:car_maintenance_system_new/core/models/booking_model.dart';
+import 'package:car_maintenance_system_new/features/booking/presentation/viewmodels/booking_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/car/presentation/viewmodels/car_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/domain/entities/booking_entity.dart';
 
-class UpcomingAppointments extends ConsumerWidget {
+class UpcomingAppointments extends ConsumerStatefulWidget {
   const UpcomingAppointments({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final bookingState = ref.watch(bookingProvider);
-    final carState = ref.watch(carProvider);
+  ConsumerState<UpcomingAppointments> createState() => _UpcomingAppointmentsState();
+}
+
+class _UpcomingAppointmentsState extends ConsumerState<UpcomingAppointments> {
+  final Set<String> _fetchingCars = {};
+
+  @override
+  Widget build(BuildContext context) {
+    final bookingState = ref.watch(bookingViewModelProvider);
+    final carState = ref.watch(carViewModelProvider);
+    
+    // Fetch missing cars when bookings change
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final booking in bookingState.bookings) {
+        if (booking.carId.isNotEmpty) {
+          final carExists = carState.cars.any((c) => c.id == booking.carId);
+          if (!carExists && !_fetchingCars.contains(booking.carId)) {
+            _fetchingCars.add(booking.carId);
+            ref.read(carViewModelProvider.notifier).getCarById(booking.carId).then((_) {
+              if (mounted) {
+                setState(() {
+                  _fetchingCars.remove(booking.carId);
+                });
+              } else {
+                _fetchingCars.remove(booking.carId);
+              }
+            });
+          }
+        }
+      }
+    });
     
     // Filter upcoming bookings (pending, confirmed only - not inProgress)
     final upcomingBookings = bookingState.bookings.where((booking) {
@@ -36,8 +64,7 @@ class UpcomingAppointments extends ConsumerWidget {
       children: displayBookings.map((booking) {
         // Get car info
         final car = carState.cars.where((c) => c.id == booking.carId).firstOrNull;
-        
-        final carName = car != null ? '${car.make} ${car.model}' : 'Unknown Car';
+        final carName = car != null ? '${car.make} ${car.model}' : 'Loading...';
         
         return Card(
           margin: EdgeInsets.only(bottom: 12.h),
@@ -142,7 +169,7 @@ class UpcomingAppointments extends ConsumerWidget {
     );
   }
 
-  void _showCancelDialog(BuildContext context, WidgetRef ref, BookingModel booking) {
+  void _showCancelDialog(BuildContext context, WidgetRef ref, BookingEntity booking) {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -174,7 +201,7 @@ class UpcomingAppointments extends ConsumerWidget {
               
               try {
                 // Quick cancellation with immediate UI update
-                final success = await ref.read(bookingProvider.notifier).cancelBooking(
+                final success = await ref.read(bookingViewModelProvider.notifier).cancelBooking(
                   booking.id,
                 );
                 

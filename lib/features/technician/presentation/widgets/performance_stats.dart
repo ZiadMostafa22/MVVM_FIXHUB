@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:car_maintenance_system_new/core/providers/auth_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/booking_provider.dart';
-import 'package:car_maintenance_system_new/core/models/booking_model.dart';
+import 'package:car_maintenance_system_new/features/auth/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/presentation/viewmodels/booking_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/domain/entities/booking_entity.dart';
 
 class PerformanceStats extends ConsumerWidget {
   const PerformanceStats({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bookingState = ref.watch(bookingProvider);
-    final user = ref.watch(authProvider).user;
+    final bookingState = ref.watch(bookingViewModelProvider);
+    final user = ref.watch(authViewModelProvider).user;
 
     // Calculate stats from bookings - ONLY show jobs where technician is explicitly assigned
     final completedJobs = bookingState.bookings.where((b) =>

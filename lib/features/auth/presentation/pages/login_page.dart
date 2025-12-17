@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
-import 'package:car_maintenance_system_new/core/providers/auth_provider.dart';
+import 'package:car_maintenance_system_new/features/auth/presentation/viewmodels/auth_viewmodel.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -26,15 +26,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   Future<void> _handleLogin() async {
     if (_formKey.currentState!.validate()) {
-      // Pass empty role - auth provider will auto-detect from Firestore
-      final success = await ref.read(authProvider.notifier).signIn(
+      // Pass empty role - auth viewmodel will auto-detect from Firestore
+      final success = await ref.read(authViewModelProvider.notifier).signIn(
         _emailController.text.trim(),
         _passwordController.text,
-        '', // Empty role triggers auto-detection in auth_provider
+        '', // Empty role triggers auto-detection in auth_viewmodel
       );
       
       if (!success && mounted) {
-        final errorMessage = ref.read(authProvider).error ?? 'Login failed. Please check your credentials.';
+        final errorMessage = ref.read(authViewModelProvider).error ?? 'Login failed. Please check your credentials.';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errorMessage),
@@ -49,7 +49,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
+    final authState = ref.watch(authViewModelProvider);
     final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
     
     return Scaffold(

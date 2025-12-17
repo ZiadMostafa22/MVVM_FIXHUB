@@ -3,17 +3,45 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
-import 'package:car_maintenance_system_new/core/providers/booking_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/car_provider.dart';
-import 'package:car_maintenance_system_new/core/models/booking_model.dart';
+import 'package:car_maintenance_system_new/features/booking/presentation/viewmodels/booking_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/car/presentation/viewmodels/car_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/domain/entities/booking_entity.dart';
 
-class MissedAppointments extends ConsumerWidget {
+class MissedAppointments extends ConsumerStatefulWidget {
   const MissedAppointments({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final bookingState = ref.watch(bookingProvider);
-    final carState = ref.watch(carProvider);
+  ConsumerState<MissedAppointments> createState() => _MissedAppointmentsState();
+}
+
+class _MissedAppointmentsState extends ConsumerState<MissedAppointments> {
+  final Set<String> _fetchingCars = {};
+
+  @override
+  Widget build(BuildContext context) {
+    final bookingState = ref.watch(bookingViewModelProvider);
+    final carState = ref.watch(carViewModelProvider);
+    
+    // Fetch missing cars when bookings change
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final booking in bookingState.bookings) {
+        if (booking.carId.isNotEmpty) {
+          final carExists = carState.cars.any((c) => c.id == booking.carId);
+          if (!carExists && !_fetchingCars.contains(booking.carId)) {
+            _fetchingCars.add(booking.carId);
+            ref.read(carViewModelProvider.notifier).getCarById(booking.carId).then((_) {
+              if (mounted) {
+                setState(() {
+                  _fetchingCars.remove(booking.carId);
+                });
+              } else {
+                _fetchingCars.remove(booking.carId);
+              }
+            });
+          }
+        }
+      }
+    });
     
     final now = DateTime.now();
     
@@ -85,7 +113,7 @@ class MissedAppointments extends ConsumerWidget {
         
         ...displayBookings.map((booking) {
           final car = carState.cars.where((c) => c.id == booking.carId).firstOrNull;
-          final carName = car != null ? '${car.make} ${car.model}' : 'Unknown Car';
+          final carName = car != null ? '${car.make} ${car.model}' : 'Loading...';
           
           // Calculate how long ago it was missed
           final missedDuration = now.difference(booking.scheduledDate);
@@ -227,7 +255,7 @@ class MissedAppointments extends ConsumerWidget {
                             
                             try {
                               // Quick cancellation with immediate UI update
-                              final success = await ref.read(bookingProvider.notifier).cancelBooking(
+                              final success = await ref.read(bookingViewModelProvider.notifier).cancelBooking(
                                 booking.id,
                               );
                               

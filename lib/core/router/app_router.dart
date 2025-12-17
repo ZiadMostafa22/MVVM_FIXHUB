@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:car_maintenance_system_new/core/providers/auth_provider.dart';
+import 'package:car_maintenance_system_new/features/auth/presentation/viewmodels/auth_viewmodel.dart';
 import 'package:car_maintenance_system_new/features/auth/presentation/pages/login_page.dart';
 import 'package:car_maintenance_system_new/features/auth/presentation/pages/register_page.dart';
 import 'package:car_maintenance_system_new/features/customer/presentation/pages/customer_dashboard.dart';
@@ -23,17 +23,25 @@ import 'package:car_maintenance_system_new/features/admin/presentation/pages/adm
 import 'package:car_maintenance_system_new/features/admin/presentation/pages/admin_offers_page.dart';
 import 'package:car_maintenance_system_new/features/admin/presentation/pages/admin_analytics_page.dart';
 import 'package:car_maintenance_system_new/features/admin/presentation/pages/admin_invite_codes_page.dart';
+import 'package:car_maintenance_system_new/features/admin/presentation/pages/admin_services_page.dart';
+import 'package:car_maintenance_system_new/features/admin/presentation/pages/admin_inventory_page.dart';
+import 'package:car_maintenance_system_new/features/admin/presentation/pages/admin_refunds_page.dart';
+import 'package:car_maintenance_system_new/features/admin/presentation/pages/admin_reports_page.dart';
 import 'package:car_maintenance_system_new/features/cashier/presentation/pages/cashier_dashboard.dart';
 import 'package:car_maintenance_system_new/features/cashier/presentation/pages/cashier_payments_page.dart';
 import 'package:car_maintenance_system_new/features/cashier/presentation/pages/cashier_payment_details_page.dart';
 import 'package:car_maintenance_system_new/features/cashier/presentation/pages/cashier_profile_page.dart';
+import 'package:car_maintenance_system_new/features/cashier/presentation/pages/cashier_reports_page.dart';
+import 'package:car_maintenance_system_new/features/cashier/presentation/pages/cashier_refunds_page.dart';
+import 'package:car_maintenance_system_new/features/shared/presentation/pages/notifications_page.dart';
 import 'package:car_maintenance_system_new/features/splash/presentation/pages/splash_page.dart';
+import 'package:car_maintenance_system_new/features/chatbot/presentation/pages/chatbot_page.dart';
 
 // Create a listenable for auth state changes
 class AuthStateNotifier extends ChangeNotifier {
   AuthStateNotifier(this._ref) {
     _ref.listen<AuthState>(
-      authProvider,
+      authViewModelProvider,
       (previous, next) {
         // Notify listeners whenever auth state changes
         if (previous?.userRole != next.userRole ||
@@ -54,7 +62,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/splash',
     refreshListenable: authStateNotifier,
     redirect: (context, state) {
-      final authState = ref.read(authProvider);
+      final authState = ref.read(authViewModelProvider);
       final isLoading = authState.isLoading;
       final userId = authState.userId;
       final userRole = authState.userRole;
@@ -186,8 +194,16 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const CustomerOffersPage(),
           ),
           GoRoute(
+            path: 'chatbot',
+            builder: (context, state) => const ChatbotPage(),
+          ),
+          GoRoute(
             path: 'profile',
             builder: (context, state) => const CustomerProfilePage(),
+          ),
+          GoRoute(
+            path: 'notifications',
+            builder: (context, state) => const NotificationsPage(),
           ),
         ],
       ),
@@ -211,6 +227,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'profile',
             builder: (context, state) => const TechnicianProfilePage(),
+          ),
+          GoRoute(
+            path: 'notifications',
+            builder: (context, state) => const NotificationsPage(),
           ),
         ],
       ),
@@ -244,6 +264,30 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'offers',
             builder: (context, state) => const AdminOffersPage(),
           ),
+          GoRoute(
+            path: 'services',
+            builder: (context, state) => const AdminServicesPage(),
+          ),
+          GoRoute(
+            path: 'inventory',
+            builder: (context, state) => const AdminInventoryPage(),
+          ),
+          GoRoute(
+            path: 'refunds',
+            builder: (context, state) => const AdminRefundsPage(),
+          ),
+          GoRoute(
+            path: 'reports',
+            builder: (context, state) => const AdminReportsPage(),
+          ),
+          GoRoute(
+            path: 'notifications',
+            builder: (context, state) => const NotificationsPage(),
+          ),
+          GoRoute(
+            path: 'reports',
+            builder: (context, state) => const CashierReportsPage(),
+          ),
         ],
       ),
       
@@ -266,6 +310,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'profile',
             builder: (context, state) => const CashierProfilePage(),
+          ),
+          GoRoute(
+            path: 'reports',
+            builder: (context, state) => const CashierReportsPage(),
+          ),
+          GoRoute(
+            path: 'refunds',
+            builder: (context, state) => const CashierRefundsPage(),
+          ),
+          GoRoute(
+            path: 'notifications',
+            builder: (context, state) => const NotificationsPage(),
           ),
         ],
       ),

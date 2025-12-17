@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
-import 'package:car_maintenance_system_new/core/providers/auth_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/booking_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/car_provider.dart';
+import 'package:car_maintenance_system_new/features/auth/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/presentation/viewmodels/booking_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/car/presentation/viewmodels/car_viewmodel.dart';
 import 'package:car_maintenance_system_new/features/shared/presentation/pages/settings_page.dart';
 import 'package:car_maintenance_system_new/features/technician/presentation/widgets/today_jobs.dart';
 import 'package:car_maintenance_system_new/features/technician/presentation/widgets/performance_stats.dart';
+import 'package:car_maintenance_system_new/features/shared/presentation/pages/notifications_page.dart';
 
 class TechnicianDashboard extends ConsumerStatefulWidget {
   const TechnicianDashboard({super.key});
@@ -22,13 +23,14 @@ class _TechnicianDashboardState extends ConsumerState<TechnicianDashboard> {
     super.initState();
     // Start real-time listeners for bookings and load cars when dashboard opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final user = ref.read(authProvider).user;
+      final user = ref.read(authViewModelProvider).user;
       if (user != null) {
         // Start real-time listener for all bookings
-        ref.read(bookingProvider.notifier).startListening(user.id, role: 'technician');
+        ref.read(bookingViewModelProvider.notifier).startListening(user.id, role: 'technician');
         // Load all cars to display car info in jobs
-        ref.read(carProvider.notifier).loadCars('');
+        ref.read(carViewModelProvider.notifier).loadCars('');
       }
+      
     });
   }
 
@@ -37,7 +39,7 @@ class _TechnicianDashboardState extends ConsumerState<TechnicianDashboard> {
     // Stop listening when dashboard is disposed
     // Wrap in try-catch to handle cases where widget is already disposed during logout
     try {
-      ref.read(bookingProvider.notifier).stopListening();
+      ref.read(bookingViewModelProvider.notifier).stopListening();
     } catch (e) {
       // Widget was already disposed, safe to ignore
       debugPrint('Dashboard disposed, listener cleanup skipped: $e');
@@ -46,16 +48,16 @@ class _TechnicianDashboardState extends ConsumerState<TechnicianDashboard> {
   }
 
   Future<void> _refreshData() async {
-    final user = ref.read(authProvider).user;
+    final user = ref.read(authViewModelProvider).user;
     if (user != null) {
-      await ref.read(bookingProvider.notifier).loadBookings(user.id, role: 'technician');
-      await ref.read(carProvider.notifier).loadCars('');
+      await ref.read(bookingViewModelProvider.notifier).loadBookings(user.id, role: 'technician');
+      await ref.read(carViewModelProvider.notifier).loadCars('');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
+    final authState = ref.watch(authViewModelProvider);
     final user = authState.user;
 
     return Scaffold(
@@ -74,10 +76,46 @@ class _TechnicianDashboardState extends ConsumerState<TechnicianDashboard> {
               );
             },
           ),
-          IconButton(
-            icon: Icon(Icons.notifications, size: 22.sp),
-            onPressed: () {
-              // TODO: Navigate to notifications
+          // Notification bell with unread count
+          Consumer(
+            builder: (context, ref, child) {
+              final unreadAsync = ref.watch(unreadCountProvider);
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.notifications, size: 22.sp),
+                    onPressed: () {
+                      context.push('/technician/notifications');
+                    },
+                  ),
+                  unreadAsync.when(
+                    data: (count) => count > 0
+                        ? Positioned(
+                            right: 8,
+                            top: 8,
+                            child: Container(
+                              padding: EdgeInsets.all(4.w),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Text(
+                                count > 9 ? '9+' : '$count',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10.sp,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                  ),
+                ],
+              );
             },
           ),
         ],

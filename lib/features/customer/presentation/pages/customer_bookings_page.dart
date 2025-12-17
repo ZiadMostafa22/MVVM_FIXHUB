@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:car_maintenance_system_new/core/providers/auth_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/booking_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/car_provider.dart';
-import 'package:car_maintenance_system_new/core/models/booking_model.dart';
+import 'package:car_maintenance_system_new/features/auth/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/presentation/viewmodels/booking_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/car/presentation/viewmodels/car_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/domain/entities/booking_entity.dart';
 
 class CustomerBookingsPage extends ConsumerStatefulWidget {
   const CustomerBookingsPage({super.key});
@@ -15,6 +15,8 @@ class CustomerBookingsPage extends ConsumerStatefulWidget {
 }
 
 class _CustomerBookingsPageState extends ConsumerState<CustomerBookingsPage> {
+  final Set<String> _fetchingCars = {};
+
   @override
   void initState() {
     super.initState();
@@ -24,17 +26,38 @@ class _CustomerBookingsPageState extends ConsumerState<CustomerBookingsPage> {
   }
 
   Future<void> _refreshData() async {
-    final user = ref.read(authProvider).user;
+    final user = ref.read(authViewModelProvider).user;
     if (user != null) {
-      await ref.read(bookingProvider.notifier).loadBookings(user.id);
-      await ref.read(carProvider.notifier).loadCars(user.id);
+      await ref.read(bookingViewModelProvider.notifier).loadBookings(user.id);
+      await ref.read(carViewModelProvider.notifier).loadCars(user.id);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final bookingState = ref.watch(bookingProvider);
-    final carState = ref.watch(carProvider);
+    final bookingState = ref.watch(bookingViewModelProvider);
+    final carState = ref.watch(carViewModelProvider);
+    
+    // Fetch missing cars when bookings change
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final booking in bookingState.bookings) {
+        if (booking.carId.isNotEmpty) {
+          final carExists = carState.cars.any((c) => c.id == booking.carId);
+          if (!carExists && !_fetchingCars.contains(booking.carId)) {
+            _fetchingCars.add(booking.carId);
+            ref.read(carViewModelProvider.notifier).getCarById(booking.carId).then((_) {
+              if (mounted) {
+                setState(() {
+                  _fetchingCars.remove(booking.carId);
+                });
+              } else {
+                _fetchingCars.remove(booking.carId);
+              }
+            });
+          }
+        }
+      }
+    });
     
     // Sort bookings by scheduled date (newest first)
     final sortedBookings = List.from(bookingState.bookings);
@@ -102,8 +125,7 @@ class _CustomerBookingsPageState extends ConsumerState<CustomerBookingsPage> {
                     
                     // Get car info
                     final car = carState.cars.where((c) => c.id == booking.carId).firstOrNull;
-                    
-                    final carName = car != null ? '${car.make} ${car.model}' : 'Unknown Car';
+                    final carName = car != null ? '${car.make} ${car.model}' : 'Loading...';
                     
                     return Card(
                       margin: const EdgeInsets.only(bottom: 16),
@@ -221,7 +243,7 @@ class _CustomerBookingsPageState extends ConsumerState<CustomerBookingsPage> {
     );
   }
 
-  void _showBookingDetails(BuildContext context, BookingModel booking, String carName) {
+  void _showBookingDetails(BuildContext context, BookingEntity booking, String carName) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -302,7 +324,7 @@ class _CustomerBookingsPageState extends ConsumerState<CustomerBookingsPage> {
     );
 
     if (confirmed == true) {
-      final success = await ref.read(bookingProvider.notifier).cancelBooking(bookingId);
+      final success = await ref.read(bookingViewModelProvider.notifier).cancelBooking(bookingId);
       
       // Use the captured ScaffoldMessenger instead of context
       scaffoldMessenger.showSnackBar(

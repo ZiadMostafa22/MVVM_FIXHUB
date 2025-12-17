@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:car_maintenance_system_new/core/models/offer_model.dart';
 import 'package:car_maintenance_system_new/core/services/firebase_service.dart';
-import 'package:car_maintenance_system_new/core/providers/auth_provider.dart';
+import 'package:car_maintenance_system_new/features/auth/presentation/viewmodels/auth_viewmodel.dart';
 
 class AdminOffersPage extends ConsumerStatefulWidget {
   const AdminOffersPage({super.key});
@@ -274,7 +274,7 @@ class _AdminOffersPageState extends ConsumerState<AdminOffersPage> {
                   ),
                   SizedBox(height: 12.h),
                   DropdownButtonFormField<OfferType>(
-                    value: selectedType,
+                    initialValue: selectedType,
                     decoration: InputDecoration(
                       labelText: 'Type',
                       labelStyle: TextStyle(fontSize: 14.sp),
@@ -384,7 +384,7 @@ class _AdminOffersPageState extends ConsumerState<AdminOffersPage> {
                   return;
                 }
 
-                final user = ref.read(authProvider).user;
+                final user = ref.read(authViewModelProvider).user;
                 if (user == null) return;
 
                 final offerData = OfferModel(

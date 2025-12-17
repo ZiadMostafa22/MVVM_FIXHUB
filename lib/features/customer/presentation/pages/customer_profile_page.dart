@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import 'package:car_maintenance_system_new/core/providers/auth_provider.dart';
+import 'package:car_maintenance_system_new/features/auth/presentation/viewmodels/auth_viewmodel.dart';
 import 'package:car_maintenance_system_new/core/services/firebase_service.dart';
 import 'package:car_maintenance_system_new/core/models/user_model.dart' as app_models;
+import 'package:car_maintenance_system_new/features/customer/presentation/widgets/customer_bottom_nav_bar.dart';
 
 class CustomerProfilePage extends ConsumerStatefulWidget {
   const CustomerProfilePage({super.key});
@@ -31,7 +32,7 @@ class _CustomerProfilePageState extends ConsumerState<CustomerProfilePage> {
   }
 
   void _loadUserData() {
-    final user = ref.read(authProvider).user;
+    final user = ref.read(authViewModelProvider).user;
     if (user != null) {
       _nameController.text = user.name;
       _phoneController.text = user.phone;
@@ -40,7 +41,7 @@ class _CustomerProfilePageState extends ConsumerState<CustomerProfilePage> {
 
   Future<void> _loadUserFullData() async {
     try {
-      final user = ref.read(authProvider).user;
+      final user = ref.read(authViewModelProvider).user;
       if (user == null) return;
 
       final doc = await FirebaseService.usersCollection.doc(user.id).get();
@@ -66,7 +67,7 @@ class _CustomerProfilePageState extends ConsumerState<CustomerProfilePage> {
     setState(() => _isLoading = true);
 
     try {
-      final user = ref.read(authProvider).user;
+      final user = ref.read(authViewModelProvider).user;
       if (user == null) throw 'User not found';
 
       await FirebaseFirestore.instance
@@ -107,7 +108,7 @@ class _CustomerProfilePageState extends ConsumerState<CustomerProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
+    final authState = ref.watch(authViewModelProvider);
     final user = authState.user;
 
     return Scaffold(
@@ -353,7 +354,7 @@ class _CustomerProfilePageState extends ConsumerState<CustomerProfilePage> {
                           ElevatedButton(
                             onPressed: () {
                               Navigator.pop(context);
-                              ref.read(authProvider.notifier).signOut();
+                              ref.read(authViewModelProvider.notifier).signOut();
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.red,
@@ -376,6 +377,7 @@ class _CustomerProfilePageState extends ConsumerState<CustomerProfilePage> {
           ),
         ),
       ),
+      bottomNavigationBar: CustomerBottomNavBar(context: context),
     );
   }
 

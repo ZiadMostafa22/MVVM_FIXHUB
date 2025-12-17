@@ -5,7 +5,7 @@ enum BookingStatus { pending, confirmed, inProgress, completedPendingPayment, co
 enum MaintenanceType { regular, repair, inspection, emergency }
 enum PaymentMethod { cash, card, digital }
 
-class BookingModel {
+class BookingEntity {
   final String id;
   final String userId;
   final String carId;
@@ -23,7 +23,7 @@ class BookingModel {
   final DateTime? startedAt;
   
   // Invoice/Service details
-  final List<ServiceItemModel>? serviceItems;
+  final List<ServiceItemEntity>? serviceItems;
   final double? laborCost;
   final double? tax;
   final String? technicianNotes;
@@ -74,7 +74,7 @@ class BookingModel {
     return subtotalAfterDiscount + taxAmount;
   }
 
-  BookingModel({
+  BookingEntity({
     required this.id,
     required this.userId,
     required this.carId,
@@ -106,8 +106,8 @@ class BookingModel {
     this.paymentMethod,
   });
 
-  factory BookingModel.fromMap(Map<String, dynamic> map) {
-    return BookingModel(
+  factory BookingEntity.fromMap(Map<String, dynamic> map) {
+    return BookingEntity(
       id: map['id'] ?? '',
       userId: map['userId'] ?? '',
       carId: map['carId'] ?? '',
@@ -136,7 +136,7 @@ class BookingModel {
           ? (map['startedAt'] as Timestamp).toDate() 
           : null,
       serviceItems: map['serviceItems'] != null
-          ? (map['serviceItems'] as List).map((item) => ServiceItemModel.fromMap(item)).toList()
+          ? (map['serviceItems'] as List).map((item) => ServiceItemEntity.fromMap(item)).toList()
           : null,
       laborCost: map['laborCost']?.toDouble(),
       tax: map['tax']?.toDouble(),
@@ -163,8 +163,8 @@ class BookingModel {
     );
   }
 
-  factory BookingModel.fromFirestore(Map<String, dynamic> map, String id) {
-    return BookingModel(
+  factory BookingEntity.fromFirestore(Map<String, dynamic> map, String id) {
+    return BookingEntity(
       id: id,
       userId: map['userId'] ?? '',
       carId: map['carId'] ?? '',
@@ -193,7 +193,7 @@ class BookingModel {
           ? (map['startedAt'] as Timestamp).toDate()
           : null,
           serviceItems: map['serviceItems'] != null
-              ? (map['serviceItems'] as List).map((item) => ServiceItemModel.fromMap(item as Map<String, dynamic>)).toList()
+              ? (map['serviceItems'] as List).map((item) => ServiceItemEntity.fromMap(item as Map<String, dynamic>)).toList()
               : null,
           laborCost: map['laborCost']?.toDouble(),
           tax: map['tax']?.toDouble(),
@@ -283,7 +283,7 @@ class BookingModel {
     };
   }
 
-  BookingModel copyWith({
+  BookingEntity copyWith({
     String? id,
     String? userId,
     String? carId,
@@ -299,7 +299,7 @@ class BookingModel {
     DateTime? updatedAt,
     DateTime? completedAt,
     DateTime? startedAt,
-    List<ServiceItemModel>? serviceItems,
+    List<ServiceItemEntity>? serviceItems,
     double? laborCost,
     double? tax,
     String? technicianNotes,
@@ -314,7 +314,7 @@ class BookingModel {
     String? cashierId,
     PaymentMethod? paymentMethod,
   }) {
-    return BookingModel(
+    return BookingEntity(
       id: id ?? this.id,
       userId: userId ?? this.userId,
       carId: carId ?? this.carId,

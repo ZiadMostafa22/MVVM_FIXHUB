@@ -4,13 +4,14 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:car_maintenance_system_new/core/models/booking_model.dart';
-import 'package:car_maintenance_system_new/core/models/car_model.dart';
+import 'package:car_maintenance_system_new/features/booking/domain/entities/booking_entity.dart';
+import 'package:car_maintenance_system_new/features/car/domain/entities/car_entity.dart';
 import 'package:car_maintenance_system_new/core/models/service_item_model.dart';
-import 'package:car_maintenance_system_new/core/providers/auth_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/booking_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/car_provider.dart';
+import 'package:car_maintenance_system_new/features/auth/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/presentation/viewmodels/booking_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/car/presentation/viewmodels/car_viewmodel.dart';
 import 'package:car_maintenance_system_new/core/constants/service_items_constants.dart';
+import 'package:car_maintenance_system_new/core/services/notification_service.dart';
 
 class JobDetailsPage extends ConsumerStatefulWidget {
   final String bookingId;
@@ -22,12 +23,12 @@ class JobDetailsPage extends ConsumerStatefulWidget {
 }
 
 class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
-  final List<ServiceItemModel> _serviceItems = [];
+  final List<ServiceItemEntity> _serviceItems = [];
   final _laborCostController = TextEditingController();
   final _technicianNotesController = TextEditingController();
   
-  BookingModel? _booking;
-  CarModel? _car;
+  BookingEntity? _booking;
+  CarEntity? _car;
   bool _hasUnsavedChanges = false;
 
   @override
@@ -39,16 +40,27 @@ class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
   }
 
   void _loadBookingDetails() {
-    final bookingState = ref.read(bookingProvider);
-    final carState = ref.read(carProvider);
+    final bookingState = ref.read(bookingViewModelProvider);
+    final carState = ref.read(carViewModelProvider);
 
     _booking = bookingState.bookings.firstWhere((b) => b.id == widget.bookingId);
     _car = carState.cars.where((c) => c.id == _booking!.carId).firstOrNull;
+    
+    // If car not found, fetch it
+    if (_car == null && _booking!.carId.isNotEmpty) {
+      ref.read(carViewModelProvider.notifier).getCarById(_booking!.carId).then((fetchedCar) {
+        if (mounted && fetchedCar != null) {
+          setState(() {
+            _car = fetchedCar;
+          });
+        }
+      });
+    }
 
     // Load existing service items if any
     if (_booking!.serviceItems != null) {
       _serviceItems.clear();
-      _serviceItems.addAll(_booking!.serviceItems!);
+      _serviceItems.addAll(_booking!.serviceItems as Iterable<ServiceItemEntity>);
     }
     
     // Set labor cost with default if empty
@@ -488,7 +500,7 @@ class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
   }
 
   Future<void> _startJob() async {
-    final user = ref.read(authProvider).user;
+    final user = ref.read(authViewModelProvider).user;
     
     // Assign technician to job when starting
     final assignedTechs = _booking!.assignedTechnicians ?? [];
@@ -496,7 +508,7 @@ class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
       assignedTechs.add(user.id);
     }
     
-    final success = await ref.read(bookingProvider.notifier).updateBooking(
+    final success = await ref.read(bookingViewModelProvider.notifier).updateBooking(
       _booking!.id,
       {
         'status': BookingStatus.inProgress.toString().split('.').last,
@@ -509,9 +521,9 @@ class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
     if (mounted) {
       if (success) {
         // Reload bookings from Firebase
-        final user = ref.read(authProvider).user;
+        final user = ref.read(authViewModelProvider).user;
         if (user != null) {
-          await ref.read(bookingProvider.notifier).loadBookings(user.id, role: 'technician');
+          await ref.read(bookingViewModelProvider.notifier).loadBookings(user.id, role: 'technician');
         }
         
         if (mounted) {
@@ -532,7 +544,7 @@ class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
     final laborCost = double.tryParse(_laborCostController.text) ?? 0;
     final tax = _calculateSubtotal() * 0.10;
 
-    final success = await ref.read(bookingProvider.notifier).updateBooking(
+    final success = await ref.read(bookingViewModelProvider.notifier).updateBooking(
       _booking!.id,
       {
         'serviceItems': _serviceItems.map((item) => item.toMap()).toList(),
@@ -546,9 +558,9 @@ class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
     if (mounted) {
       if (success) {
         // Reload bookings from Firebase
-        final user = ref.read(authProvider).user;
+        final user = ref.read(authViewModelProvider).user;
         if (user != null) {
-          await ref.read(bookingProvider.notifier).loadBookings(user.id, role: 'technician');
+          await ref.read(bookingViewModelProvider.notifier).loadBookings(user.id, role: 'technician');
         }
         
         if (mounted) {
@@ -572,7 +584,7 @@ class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
     final laborCost = double.tryParse(_laborCostController.text) ?? 0;
     final tax = _calculateSubtotal() * 0.10;
 
-    await ref.read(bookingProvider.notifier).updateBooking(
+    await ref.read(bookingViewModelProvider.notifier).updateBooking(
       _booking!.id,
       {
         'serviceItems': _serviceItems.map((item) => item.toMap()).toList(),
@@ -597,14 +609,17 @@ class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
     }
 
     final laborCost = double.tryParse(_laborCostController.text) ?? 0;
-    final tax = _calculateSubtotal() * 0.10;
+    final subtotal = _calculateSubtotal();
+    final tax = subtotal * 0.10;
+    final totalCost = subtotal + tax;
 
-    final success = await ref.read(bookingProvider.notifier).updateBooking(
+    final success = await ref.read(bookingViewModelProvider.notifier).updateBooking(
       _booking!.id,
       {
         'serviceItems': _serviceItems.map((item) => item.toMap()).toList(),
         'laborCost': laborCost,
         'tax': tax,
+        'totalCost': totalCost, // Add total cost
         'technicianNotes': _technicianNotesController.text,
         'status': BookingStatus.completedPendingPayment.toString().split('.').last,
         'completedAt': Timestamp.now(),
@@ -614,10 +629,26 @@ class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
 
     if (mounted) {
       if (success) {
+        // Send service completed notification to customer
+        try {
+          final carInfo = _car != null 
+              ? '${_car!.year} ${_car!.make} ${_car!.model}'
+              : 'Your vehicle';
+          await NotificationService().sendServiceCompleted(
+            userId: _booking!.userId,
+            bookingId: _booking!.id,
+            carInfo: carInfo,
+            totalCost: _calculateSubtotal() * 1.10, // Include tax
+          );
+          debugPrint('📬 Service completed notification sent to customer');
+        } catch (e) {
+          debugPrint('⚠️ Failed to send service completed notification: $e');
+        }
+        
         // Reload bookings to reflect the update
-        final user = ref.read(authProvider).user;
+        final user = ref.read(authViewModelProvider).user;
         if (user != null) {
-          await ref.read(bookingProvider.notifier).loadBookings(user.id, role: 'technician');
+          await ref.read(bookingViewModelProvider.notifier).loadBookings(user.id, role: 'technician');
         }
         
         if (mounted) {
@@ -661,8 +692,8 @@ class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
 
 // Dialog for adding service items with predefined items dropdown
 class _ServiceItemDialog extends StatefulWidget {
-  final Function(ServiceItemModel) onAdd;
-  final List<ServiceItemModel> predefinedItems;
+  final Function(ServiceItemEntity) onAdd;
+  final List<ServiceItemEntity> predefinedItems;
 
   const _ServiceItemDialog({
     required this.onAdd,
@@ -676,7 +707,7 @@ class _ServiceItemDialog extends StatefulWidget {
 class _ServiceItemDialogState extends State<_ServiceItemDialog> {
   final _formKey = GlobalKey<FormState>();
   final _quantityController = TextEditingController(text: '1');
-  ServiceItemModel? _selectedItem;
+  ServiceItemEntity? _selectedItem;
 
   @override
   Widget build(BuildContext context) {
@@ -691,7 +722,7 @@ class _ServiceItemDialogState extends State<_ServiceItemDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                DropdownButtonFormField<ServiceItemModel>(
+                DropdownButtonFormField<ServiceItemEntity>(
                   value: _selectedItem,
                   isExpanded: true,
                   decoration: InputDecoration(
@@ -703,7 +734,7 @@ class _ServiceItemDialogState extends State<_ServiceItemDialog> {
                   ),
                   menuMaxHeight: 0.5.sh,
                   selectedItemBuilder: (BuildContext context) {
-                    return widget.predefinedItems.map<Widget>((ServiceItemModel item) {
+                    return widget.predefinedItems.map<Widget>((ServiceItemEntity item) {
                       return Container(
                         width: double.infinity,
                         alignment: Alignment.centerLeft,
@@ -780,7 +811,7 @@ class _ServiceItemDialogState extends State<_ServiceItemDialog> {
         ElevatedButton(
           onPressed: () {
             if (_formKey.currentState!.validate()) {
-              final item = ServiceItemModel(
+              final item = ServiceItemEntity(
                 id: DateTime.now().millisecondsSinceEpoch.toString(),
                 name: _selectedItem!.name,
                 type: _selectedItem!.type,

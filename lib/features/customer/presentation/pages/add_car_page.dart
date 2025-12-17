@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:car_maintenance_system_new/core/providers/auth_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/car_provider.dart';
-import 'package:car_maintenance_system_new/core/models/car_model.dart';
+import 'package:car_maintenance_system_new/features/auth/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/car/presentation/viewmodels/car_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/car/domain/entities/car_entity.dart';
 
 class AddCarPage extends ConsumerStatefulWidget {
   const AddCarPage({super.key});
@@ -34,10 +34,10 @@ class _AddCarPageState extends ConsumerState<AddCarPage> {
 
   Future<void> _submitCar() async {
     if (_formKey.currentState!.validate()) {
-      final user = ref.read(authProvider).user;
+      final user = ref.read(authViewModelProvider).user;
       if (user == null) return;
 
-      final car = CarModel(
+      final car = CarEntity(
         id: '',
         userId: user.id,
         make: _makeController.text.trim(),
@@ -51,7 +51,7 @@ class _AddCarPageState extends ConsumerState<AddCarPage> {
         updatedAt: DateTime.now(),
       );
 
-      final success = await ref.read(carProvider.notifier).addCar(car);
+      final success = await ref.read(carViewModelProvider.notifier).addCar(car);
 
       if (mounted) {
         if (success) {
@@ -62,7 +62,7 @@ class _AddCarPageState extends ConsumerState<AddCarPage> {
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(ref.read(carProvider).error ?? 'Failed to add car'),
+              content: Text(ref.read(carViewModelProvider).error ?? 'Failed to add car'),
               backgroundColor: Colors.red,
             ),
           );
@@ -73,7 +73,7 @@ class _AddCarPageState extends ConsumerState<AddCarPage> {
 
   @override
   Widget build(BuildContext context) {
-    final carState = ref.watch(carProvider);
+    final carState = ref.watch(carViewModelProvider);
 
     return Scaffold(
       appBar: AppBar(

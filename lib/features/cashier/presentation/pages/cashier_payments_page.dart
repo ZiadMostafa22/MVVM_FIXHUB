@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:car_maintenance_system_new/core/providers/auth_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/booking_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/car_provider.dart';
-import 'package:car_maintenance_system_new/core/models/booking_model.dart';
+import 'package:car_maintenance_system_new/features/auth/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/presentation/viewmodels/booking_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/car/presentation/viewmodels/car_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/domain/entities/booking_entity.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CashierPaymentsPage extends ConsumerStatefulWidget {
@@ -20,6 +20,7 @@ class _CashierPaymentsPageState extends ConsumerState<CashierPaymentsPage> with 
   late TabController _tabController;
   // Cache for user names
   final Map<String, String> _userNames = {};
+  final Set<String> _fetchingCars = {};
 
   Future<String> _getUserName(String userId) async {
     if (_userNames.containsKey(userId)) {
@@ -50,13 +51,13 @@ class _CashierPaymentsPageState extends ConsumerState<CashierPaymentsPage> with 
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final user = ref.read(authProvider).user;
+      final user = ref.read(authViewModelProvider).user;
       if (user != null) {
         // Start real-time listening for all bookings
-        ref.read(bookingProvider.notifier).startListening(user.id, role: 'cashier');
+        ref.read(bookingViewModelProvider.notifier).startListening(user.id, role: 'cashier');
       }
       // Load car details
-      ref.read(carProvider.notifier).loadCars('');
+      ref.read(carViewModelProvider.notifier).loadCars('');
     });
   }
 
@@ -64,7 +65,7 @@ class _CashierPaymentsPageState extends ConsumerState<CashierPaymentsPage> with 
   void dispose() {
     _tabController.dispose();
     try {
-      ref.read(bookingProvider.notifier).stopListening();
+      ref.read(bookingViewModelProvider.notifier).stopListening();
     } catch (e) {
       debugPrint('Payments page disposed, listener cleanup skipped: $e');
     }
@@ -72,15 +73,15 @@ class _CashierPaymentsPageState extends ConsumerState<CashierPaymentsPage> with 
   }
 
   Future<void> _refreshData() async {
-    final user = ref.read(authProvider).user;
+    final user = ref.read(authViewModelProvider).user;
     if (user != null) {
-      await ref.read(bookingProvider.notifier).loadBookings(user.id, role: 'cashier');
+      await ref.read(bookingViewModelProvider.notifier).loadBookings(user.id, role: 'cashier');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final bookingState = ref.watch(bookingProvider);
+    final bookingState = ref.watch(bookingViewModelProvider);
     
     // Filter bookings
     final pendingPayments = bookingState.bookings
@@ -189,7 +190,7 @@ class _CashierPaymentsPageState extends ConsumerState<CashierPaymentsPage> with 
     );
   }
 
-  Widget _buildPaymentCard(BookingModel booking, {required bool isPending}) {
+  Widget _buildPaymentCard(BookingEntity booking, {required bool isPending}) {
     return Card(
       margin: EdgeInsets.only(bottom: 12.h),
       child: InkWell(
@@ -266,10 +267,24 @@ class _CashierPaymentsPageState extends ConsumerState<CashierPaymentsPage> with 
               // Car Details Section
               Consumer(
                 builder: (context, ref, child) {
-                  final carState = ref.watch(carProvider);
-                  final car = carState.cars.isEmpty 
+                  final carState = ref.watch(carViewModelProvider);
+                  Car? car = carState.cars.isEmpty 
                       ? null 
                       : carState.cars.where((c) => c.id == booking.carId).firstOrNull;
+                  
+                  // If car not found, fetch it
+                  if (car == null && booking.carId.isNotEmpty && !_fetchingCars.contains(booking.carId)) {
+                    _fetchingCars.add(booking.carId);
+                    ref.read(carViewModelProvider.notifier).getCarById(booking.carId).then((fetchedCar) {
+                      if (mounted && fetchedCar != null) {
+                        setState(() {
+                          _fetchingCars.remove(booking.carId);
+                        });
+                      } else {
+                        _fetchingCars.remove(booking.carId);
+                      }
+                    });
+                  }
                   
                   if (car != null) {
                     return Container(

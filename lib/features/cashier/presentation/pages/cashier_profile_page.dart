@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
-import 'package:car_maintenance_system_new/core/providers/auth_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/booking_provider.dart';
+import 'package:car_maintenance_system_new/features/auth/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/presentation/viewmodels/booking_viewmodel.dart';
 import 'package:car_maintenance_system_new/core/services/firebase_service.dart';
 import 'package:car_maintenance_system_new/core/models/user_model.dart' as app_models;
 
@@ -27,7 +27,7 @@ class _CashierProfilePageState extends ConsumerState<CashierProfilePage> {
 
   Future<void> _loadUserFullData() async {
     try {
-      final user = ref.read(authProvider).user;
+      final user = ref.read(authViewModelProvider).user;
       if (user == null) return;
 
       final doc = await FirebaseService.usersCollection.doc(user.id).get();
@@ -49,9 +49,9 @@ class _CashierProfilePageState extends ConsumerState<CashierProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
+    final authState = ref.watch(authViewModelProvider);
     final user = authState.user;
-    final bookingState = ref.watch(bookingProvider);
+    final bookingState = ref.watch(bookingViewModelProvider);
 
     // Calculate cashier stats
     final processedPayments = bookingState.bookings
@@ -237,7 +237,7 @@ class _CashierProfilePageState extends ConsumerState<CashierProfilePage> {
                             Navigator.pop(dialogContext);
                             await Future.delayed(const Duration(milliseconds: 100));
                             if (mounted) {
-                              await ref.read(authProvider.notifier).signOut();
+                              await ref.read(authViewModelProvider.notifier).signOut();
                             }
                           },
                           style: ElevatedButton.styleFrom(

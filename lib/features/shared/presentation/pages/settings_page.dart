@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:car_maintenance_system_new/core/providers/auth_provider.dart';
+import 'package:car_maintenance_system_new/features/auth/presentation/viewmodels/auth_viewmodel.dart';
 import 'package:car_maintenance_system_new/core/providers/theme_provider.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
@@ -22,7 +22,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
+    final authState = ref.watch(authViewModelProvider);
     final user = authState.user;
     final themeMode = ref.watch(themeModeProvider);
     final themeNotifier = ref.read(themeModeProvider.notifier);
@@ -251,7 +251,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     },
                   ),
                   
-                  Divider(height: 1),
+                  const Divider(height: 1),
                   
                   ListTile(
                     leading: Icon(
@@ -266,7 +266,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     },
                   ),
                   
-                  Divider(height: 1),
+                  const Divider(height: 1),
                   
                   ListTile(
                     leading: Icon(

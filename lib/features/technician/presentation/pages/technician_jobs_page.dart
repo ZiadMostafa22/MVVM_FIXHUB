@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
-import 'package:car_maintenance_system_new/core/providers/auth_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/booking_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/car_provider.dart';
-import 'package:car_maintenance_system_new/core/models/booking_model.dart';
+import 'package:car_maintenance_system_new/features/auth/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/presentation/viewmodels/booking_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/car/presentation/viewmodels/car_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/domain/entities/booking_entity.dart';
 import 'package:car_maintenance_system_new/core/widgets/unified_filter_widget.dart';
 
 class TechnicianJobsPage extends ConsumerStatefulWidget {
@@ -23,11 +23,11 @@ class _TechnicianJobsPageState extends ConsumerState<TechnicianJobsPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final user = ref.read(authProvider).user;
+      final user = ref.read(authViewModelProvider).user;
       if (user != null) {
         // Start real-time listener for bookings
-        ref.read(bookingProvider.notifier).startListening(user.id, role: 'technician');
-        ref.read(carProvider.notifier).loadCars('');
+        ref.read(bookingViewModelProvider.notifier).startListening(user.id, role: 'technician');
+        ref.read(carViewModelProvider.notifier).loadCars('');
       }
     });
   }
@@ -37,7 +37,7 @@ class _TechnicianJobsPageState extends ConsumerState<TechnicianJobsPage> {
     // Stop listening when page is disposed
     // Wrap in try-catch to handle cases where widget is already disposed during logout
     try {
-      ref.read(bookingProvider.notifier).stopListening();
+      ref.read(bookingViewModelProvider.notifier).stopListening();
     } catch (e) {
       // Widget was already disposed, safe to ignore
       debugPrint('Jobs page disposed, listener cleanup skipped: $e');
@@ -47,8 +47,10 @@ class _TechnicianJobsPageState extends ConsumerState<TechnicianJobsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final bookingState = ref.watch(bookingProvider);
-    final carState = ref.watch(carProvider);
+    final bookingState = ref.watch(bookingViewModelProvider);
+    final carState = ref.watch(carViewModelProvider);
+    
+    // Removed addPostFrameCallback from build to prevent performance issues and unwanted notifications
     
     // Filter bookings - show ALL jobs to ALL technicians (no assignment filter)
     final filteredBookings = bookingState.bookings.where((booking) {
@@ -131,7 +133,7 @@ class _TechnicianJobsPageState extends ConsumerState<TechnicianJobsPage> {
                     
                     // Get car info
                     final car = carState.cars.where((c) => c.id == booking.carId).firstOrNull;
-                    final carName = car != null ? '${car.make} ${car.model} (${car.year})' : 'Unknown Car';
+                    final carName = car != null ? '${car.make} ${car.model} (${car.year})' : 'Loading...';
                     
                     return Card(
                       margin: const EdgeInsets.only(bottom: 16),

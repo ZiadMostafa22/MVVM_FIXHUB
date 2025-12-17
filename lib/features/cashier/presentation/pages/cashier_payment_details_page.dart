@@ -4,12 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:car_maintenance_system_new/core/providers/auth_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/booking_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/car_provider.dart';
-import 'package:car_maintenance_system_new/core/models/booking_model.dart';
+import 'package:car_maintenance_system_new/features/auth/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/presentation/viewmodels/booking_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/car/presentation/viewmodels/car_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/domain/entities/booking_entity.dart';
 import 'package:car_maintenance_system_new/core/utils/pdf_generator.dart';
 import 'package:car_maintenance_system_new/core/services/firebase_service.dart';
+import 'package:car_maintenance_system_new/features/refunds/data/repositories/refund_repository.dart';
 
 class CashierPaymentDetailsPage extends ConsumerStatefulWidget {
   final String bookingId;
@@ -32,11 +33,11 @@ class _CashierPaymentDetailsPageState extends ConsumerState<CashierPaymentDetail
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Load car details
-      ref.read(carProvider.notifier).loadCars('');
+      ref.read(carViewModelProvider.notifier).loadCars('');
     });
   }
 
-  Future<void> _exportInvoice(BookingModel booking) async {
+  Future<void> _exportInvoice(BookingEntity booking) async {
     try {
       // Show loading
       if (!mounted) return;
@@ -46,14 +47,14 @@ class _CashierPaymentDetailsPageState extends ConsumerState<CashierPaymentDetail
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
-      // Get car details
-      final carState = ref.read(carProvider);
-      final car = carState.cars.isEmpty 
-          ? null 
-          : carState.cars.firstWhere(
-              (c) => c.id == booking.carId,
-              orElse: () => carState.cars.first,
-            );
+      // Get car details - fetch if not found
+      final carState = ref.read(carViewModelProvider);
+      Car? car = carState.cars.where((c) => c.id == booking.carId).firstOrNull;
+      
+      // If car not found, fetch it
+      if (car == null && booking.carId.isNotEmpty) {
+        car = await ref.read(carViewModelProvider.notifier).getCarById(booking.carId);
+      }
 
       // Get customer details from Firebase
       final customerDoc = await FirebaseService.firestore
@@ -91,19 +92,19 @@ class _CashierPaymentDetailsPageState extends ConsumerState<CashierPaymentDetail
     }
   }
 
-  Future<void> _processPayment(BookingModel booking) async {
+  Future<void> _processPayment(BookingEntity booking) async {
     // Capture ScaffoldMessenger before async operation
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     
     setState(() => _isProcessing = true);
 
     try {
-      final user = ref.read(authProvider).user;
+      final user = ref.read(authViewModelProvider).user;
       if (user == null) {
         throw 'User not found';
       }
 
-      final success = await ref.read(bookingProvider.notifier).processPayment(
+      final success = await ref.read(bookingViewModelProvider.notifier).processPayment(
         bookingId: widget.bookingId,
         cashierId: user.id,
         paymentMethod: _selectedPaymentMethod,
@@ -140,8 +141,8 @@ class _CashierPaymentDetailsPageState extends ConsumerState<CashierPaymentDetail
 
   @override
   Widget build(BuildContext context) {
-    final bookingState = ref.watch(bookingProvider);
-    final carState = ref.watch(carProvider);
+    final bookingState = ref.watch(bookingViewModelProvider);
+    final carState = ref.watch(carViewModelProvider);
     
     final booking = bookingState.bookings.firstWhere(
       (b) => b.id == widget.bookingId,
@@ -158,12 +159,16 @@ class _CashierPaymentDetailsPageState extends ConsumerState<CashierPaymentDetail
     print('🔍 Subtotal After Discount: ${booking.subtotalAfterDiscount}');
     print('🔍 Total Cost: ${booking.totalCost}');
     
-    final car = carState.cars.isEmpty 
-        ? null 
-        : carState.cars.firstWhere(
-            (c) => c.id == booking.carId,
-            orElse: () => carState.cars.first,
-          );
+    Car? car = carState.cars.where((c) => c.id == booking.carId).firstOrNull;
+    
+    // If car not found, fetch it
+    if (car == null && booking.carId.isNotEmpty) {
+      ref.read(carViewModelProvider.notifier).getCarById(booking.carId).then((fetchedCar) {
+        if (mounted && fetchedCar != null) {
+          setState(() {});
+        }
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -520,7 +525,7 @@ class _CashierPaymentDetailsPageState extends ConsumerState<CashierPaymentDetail
                           color: Colors.green.shade700,
                         ),
                       ),
-                      Spacer(),
+                      const Spacer(),
                       if (booking.paymentMethod != null)
                         Text(
                           _getPaymentMethodName(booking.paymentMethod!),
@@ -531,6 +536,23 @@ class _CashierPaymentDetailsPageState extends ConsumerState<CashierPaymentDetail
                           ),
                         ),
                     ],
+                  ),
+                ),
+              ),
+              
+              SizedBox(height: 16.h),
+              
+              // Request Refund Button
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _showRefundDialog(booking),
+                  icon: const Icon(Icons.receipt_long, color: Colors.orange),
+                  label: const Text('Request Refund'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.orange,
+                    side: const BorderSide(color: Colors.orange),
+                    padding: EdgeInsets.symmetric(vertical: 12.h),
                   ),
                 ),
               ),
@@ -639,5 +661,102 @@ class _CashierPaymentDetailsPageState extends ConsumerState<CashierPaymentDetail
       debugPrint('Error fetching user name: $e');
     }
     return 'Unknown Customer';
+  }
+
+  Future<void> _showRefundDialog(BookingEntity booking) async {
+    final reasonController = TextEditingController();
+    final refundAmountController = TextEditingController(
+      text: booking.totalCost.toStringAsFixed(2),
+    );
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Request Refund'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Booking: #${booking.id.substring(0, 8)}',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+                Text(
+                  'Original Amount: \$${booking.totalCost.toStringAsFixed(2)}',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+                SizedBox(height: 16.h),
+                TextField(
+                  controller: refundAmountController,
+                  decoration: const InputDecoration(
+                    labelText: 'Refund Amount',
+                    prefixText: '\$',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                SizedBox(height: 12.h),
+                TextField(
+                  controller: reasonController,
+                  decoration: const InputDecoration(
+                    labelText: 'Reason for Refund *',
+                    border: OutlineInputBorder(),
+                    hintText: 'Enter reason for refund request',
+                  ),
+                  maxLines: 3,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+              child: const Text('Submit Request'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result == true && reasonController.text.isNotEmpty) {
+      try {
+        final user = ref.read(authViewModelProvider).user;
+        final refundAmount = double.tryParse(refundAmountController.text) ?? booking.totalCost;
+        
+        await RefundRepository().createRefundRequest(
+          bookingId: booking.id,
+          originalAmount: booking.totalCost,
+          refundAmount: refundAmount,
+          reason: reasonController.text,
+          requestedBy: user?.id ?? 'cashier',
+          originalPaymentMethod: booking.paymentMethod?.toString().split('.').last,
+        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Refund request submitted successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
   }
 }

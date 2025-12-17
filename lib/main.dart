@@ -6,6 +6,7 @@ import 'package:car_maintenance_system_new/core/theme/app_theme.dart';
 import 'package:car_maintenance_system_new/core/router/app_router.dart';
 import 'package:car_maintenance_system_new/core/providers/theme_provider.dart';
 import 'package:car_maintenance_system_new/firebase_options.dart';
+import 'package:car_maintenance_system_new/core/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,9 +17,18 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     debugPrint('✅ Firebase initialized successfully!');
+
+    // Initialize notification service
+    try {
+      await NotificationService().initialize();
+      debugPrint('✅ Notification service initialized');
+    } catch (e) {
+      debugPrint('⚠️ Notification initialization error: $e');
+    }
   } catch (e) {
     debugPrint('❌ Firebase initialization error: $e');
-  } 
+  }
+
   
   runApp(
     const ProviderScope(

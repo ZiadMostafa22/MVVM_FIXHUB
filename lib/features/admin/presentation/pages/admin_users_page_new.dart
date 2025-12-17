@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:car_maintenance_system_new/core/providers/booking_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/car_provider.dart';
-import 'package:car_maintenance_system_new/core/models/booking_model.dart';
+import 'package:car_maintenance_system_new/features/booking/presentation/viewmodels/booking_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/car/presentation/viewmodels/car_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/domain/entities/booking_entity.dart';
 
 // Provider to get all users from Firestore
 final usersProvider = StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
@@ -212,15 +212,15 @@ class _UserDetailsSheetState extends ConsumerState<UserDetailsSheet> {
     super.initState();
     // Load user's cars and bookings
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(carProvider.notifier).loadCars(widget.user['id']);
-      ref.read(bookingProvider.notifier).loadBookings(widget.user['id']);
+      ref.read(carViewModelProvider.notifier).loadCars(widget.user['id']);
+      ref.read(bookingViewModelProvider.notifier).loadBookings(widget.user['id']);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final carState = ref.watch(carProvider);
-    final bookingState = ref.watch(bookingProvider);
+    final carState = ref.watch(carViewModelProvider);
+    final bookingState = ref.watch(bookingViewModelProvider);
     
     final userCars = carState.cars.where((car) => car.userId == widget.user['id']).toList();
     final userBookings = bookingState.bookings.where((b) => b.userId == widget.user['id']).toList();

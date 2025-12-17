@@ -37,15 +37,22 @@ class QuickActions extends StatelessWidget {
         ),
         _buildActionCard(
           context,
-          icon: Icons.emergency,
-          title: 'Emergency',
-          subtitle: 'Urgent repairs',
+          icon: Icons.smart_toy,
+          title: 'AI Assistant',
+          subtitle: 'Ask questions',
+          color: Colors.purple,
+          onTap: () {
+            context.go('/customer/chatbot');
+          },
+        ),
+        _buildActionCard(
+          context,
+          icon: Icons.local_offer,
+          title: 'Special Offers',
+          subtitle: 'View deals & discounts',
           color: Colors.red,
           onTap: () {
-            // TODO: Navigate to emergency booking
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Emergency booking feature coming soon!')),
-            );
+            context.go('/customer/offers');
           },
         ),
         _buildActionCard(
@@ -56,6 +63,16 @@ class QuickActions extends StatelessWidget {
           color: Colors.orange,
           onTap: () {
             context.go('/customer/history');
+          },
+        ),
+        _buildActionCard(
+          context,
+          icon: Icons.directions_car,
+          title: 'My Cars',
+          subtitle: 'Manage vehicles',
+          color: Colors.teal,
+          onTap: () {
+            context.go('/customer/cars');
           },
         ),
       ],

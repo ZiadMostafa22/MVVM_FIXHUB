@@ -81,9 +81,9 @@ service cloud.firestore {
       // Users can read their own cars (only if active)
       allow read: if isAuthenticatedAndActive() && resource.data.userId == request.auth.uid;
       
-      // Admins and active technicians can read all cars
+      // Admins, technicians, and cashiers can read all cars
       allow read: if isAdmin() || (isAuthenticatedAndActive() && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'technician');
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['technician', 'cashier']);
       
       // Users can create cars for themselves (only if active)
       allow create: if isAuthenticatedAndActive() && 
@@ -105,9 +105,9 @@ service cloud.firestore {
       // Users can read their own bookings (only if active)
       allow read: if isAuthenticatedAndActive() && resource.data.userId == request.auth.uid;
       
-      // Admins and active technicians can read all bookings
+      // Admins, technicians, and cashiers can read all bookings
       allow read: if isAdmin() || (isAuthenticatedAndActive() && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'technician');
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['technician', 'cashier']);
       
       // Users can create bookings for themselves (only if active)
       allow create: if isAuthenticatedAndActive() && 
@@ -118,9 +118,9 @@ service cloud.firestore {
                       resource.data.userId == request.auth.uid &&
                       resource.data.status == 'pending';
       
-      // Active technicians and admins can update any booking
+      // Active technicians, cashiers, and admins can update any booking
       allow update: if isAdmin() || (isAuthenticatedAndActive() && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'technician');
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['technician', 'cashier']);
       
       // Only admins can delete bookings
       allow delete: if isAdmin();
@@ -191,7 +191,120 @@ service cloud.firestore {
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
+
+    // ========================================
+    // USER NOTIFICATIONS COLLECTION
+    // ========================================
+    match /user_notifications/{notificationId} {
+      // Users can read their own notifications
+      allow read: if isAuthenticatedAndActive() && 
+                     resource.data.userId == request.auth.uid;
+      
+      // Admins can read all notifications
+      allow read: if isAdmin();
+      
+      // System can create notifications (from functions or admin)
+      allow create: if isAuthenticated();
+      
+      // Users can update (mark as read) their own notifications
+      allow update: if isAuthenticatedAndActive() && 
+                       resource.data.userId == request.auth.uid &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      
+      // Users can delete their own notifications
+      allow delete: if isAuthenticatedAndActive() && 
+                       resource.data.userId == request.auth.uid;
+      
+      // Admins can delete any notifications
+      allow delete: if isAdmin();
+    }
+
+    // ========================================
+    // SERVICES COLLECTION (Service Catalog)
+    // ========================================
+    match /services/{serviceId} {
+      // All authenticated and active users can read services
+      allow read: if isAuthenticatedAndActive();
+      
+      // Only admins can create, update, or delete services
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ========================================
+    // INVENTORY COLLECTION
+    // ========================================
+    match /inventory/{itemId} {
+      // All authenticated and active users can read
+      allow read: if isAuthenticatedAndActive();
+      
+      // Only admins can create and delete
+      allow create: if isAdmin();
+      allow delete: if isAdmin();
+      
+      // Admins and technicians can update (for stock changes)
+      allow update: if isAdmin() || 
+                       (isAuthenticatedAndActive() && 
+                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'technician');
+    }
+
+    // ========================================
+    // INVENTORY TRANSACTIONS (Audit Log)
+    // ========================================
+    match /inventory_transactions/{transactionId} {
+      // Admins and technicians can read
+      allow read: if isAdmin() || 
+                     (isAuthenticatedAndActive() && 
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'technician');
+      
+      // Authenticated users can create (for logging stock changes)
+      allow create: if isAuthenticated();
+      
+      // No updates or deletes allowed (audit log)
+      allow update, delete: if false;
+    }
+
+    // ========================================
+    // LOW STOCK ALERTS
+    // ========================================
+    match /low_stock_alerts/{alertId} {
+      // Admins can read and update
+      allow read, update: if isAdmin();
+      
+      // System can create alerts
+      allow create: if isAuthenticated();
+      
+      // No deletes allowed
+      allow delete: if false;
+    }
+
+    // ========================================
+    // REFUNDS COLLECTION
+    // ========================================
+    match /refunds/{refundId} {
+      // Admins can read all refunds
+      allow read: if isAdmin();
+      
+      // Cashiers can read ALL refunds (needed to process approved refunds)
+      allow read: if isAuthenticatedAndActive() && 
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'cashier';
+      
+      // Cashiers can create refund requests
+      allow create: if isAuthenticatedAndActive() && 
+                             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'cashier';
+      
+      // Admins can update (approve/reject)
+      allow update: if isAdmin();
+      
+      // Cashiers can update only to mark as processed (status change only)
+      allow update: if isAuthenticatedAndActive() && 
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'cashier' &&
+                       resource.data.status == 'approved' &&
+                       request.resource.data.status == 'processed';
+      
+      // No deletes allowed (audit trail)
+      allow delete: if false;
+    }
   }
 }
-
-

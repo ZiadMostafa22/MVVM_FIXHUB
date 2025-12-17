@@ -3,11 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:car_maintenance_system_new/core/providers/auth_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/booking_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/car_provider.dart';
-import 'package:car_maintenance_system_new/core/models/booking_model.dart';
-import 'package:car_maintenance_system_new/core/models/car_model.dart';
+import 'package:car_maintenance_system_new/features/auth/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/presentation/viewmodels/booking_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/car/presentation/viewmodels/car_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/domain/entities/booking_entity.dart';
+import 'package:car_maintenance_system_new/features/car/domain/entities/car_entity.dart';
 import 'package:car_maintenance_system_new/core/utils/pdf_generator.dart';
 
 class AdminBookingsPage extends ConsumerStatefulWidget {
@@ -21,16 +21,17 @@ class _AdminBookingsPageState extends ConsumerState<AdminBookingsPage> {
   String _selectedFilter = 'all';
   DateTimeRange? _dateRange;
   final Map<String, Map<String, String>> _usersCache = {}; // userId -> {name, phone}
+  final Set<String> _fetchingCars = {};
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final user = ref.read(authProvider).user;
+      final user = ref.read(authViewModelProvider).user;
       if (user != null) {
         // Start real-time listener for all bookings
-        ref.read(bookingProvider.notifier).startListening(user.id, role: 'admin');
-        ref.read(carProvider.notifier).loadCars(''); // Load all cars
+        ref.read(bookingViewModelProvider.notifier).startListening(user.id, role: 'admin');
+        ref.read(carViewModelProvider.notifier).loadCars(''); // Load all cars
       }
     });
   }
@@ -113,7 +114,7 @@ class _AdminBookingsPageState extends ConsumerState<AdminBookingsPage> {
     // Stop listening when page is disposed
     // Wrap in try-catch to handle cases where widget is already disposed during logout
     try {
-      ref.read(bookingProvider.notifier).stopListening();
+      ref.read(bookingViewModelProvider.notifier).stopListening();
     } catch (e) {
       // Widget was already disposed, safe to ignore
       debugPrint('Bookings page disposed, listener cleanup skipped: $e');
@@ -154,8 +155,29 @@ class _AdminBookingsPageState extends ConsumerState<AdminBookingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final bookingState = ref.watch(bookingProvider);
-    final carState = ref.watch(carProvider);
+    final bookingState = ref.watch(bookingViewModelProvider);
+    final carState = ref.watch(carViewModelProvider);
+    
+    // Fetch missing cars when bookings change
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final booking in bookingState.bookings) {
+        if (booking.carId.isNotEmpty) {
+          final carExists = carState.cars.any((c) => c.id == booking.carId);
+          if (!carExists && !_fetchingCars.contains(booking.carId)) {
+            _fetchingCars.add(booking.carId);
+            ref.read(carViewModelProvider.notifier).getCarById(booking.carId).then((_) {
+              if (mounted) {
+                setState(() {
+                  _fetchingCars.remove(booking.carId);
+                });
+              } else {
+                _fetchingCars.remove(booking.carId);
+              }
+            });
+          }
+        }
+      }
+    });
 
     // Filter bookings based on selection
     var filteredBookings = bookingState.bookings;
@@ -332,8 +354,23 @@ class _AdminBookingsPageState extends ConsumerState<AdminBookingsPage> {
                           final booking = filteredBookings[index];
 
                           // Get car info
-                          final car = carState.cars.where((c) => c.id == booking.carId).firstOrNull;
-                          final carName = car != null ? '${car.make} ${car.model}' : 'Unknown Car';
+                          Car? car = carState.cars.where((c) => c.id == booking.carId).firstOrNull;
+                          
+                          // If car not found, fetch it
+                          if (car == null && booking.carId.isNotEmpty && !_fetchingCars.contains(booking.carId)) {
+                            _fetchingCars.add(booking.carId);
+                            ref.read(carViewModelProvider.notifier).getCarById(booking.carId).then((fetchedCar) {
+                              if (mounted && fetchedCar != null) {
+                                setState(() {
+                                  _fetchingCars.remove(booking.carId);
+                                });
+                              } else {
+                                _fetchingCars.remove(booking.carId);
+                              }
+                            });
+                          }
+                          
+                          final carName = car != null ? '${car.make} ${car.model}' : 'Loading...';
 
                           return Card(
                             margin: const EdgeInsets.only(bottom: 16),
@@ -606,7 +643,7 @@ class _AdminBookingsPageState extends ConsumerState<AdminBookingsPage> {
     }
   }
 
-  void _showBookingDetails(BuildContext context, BookingModel booking, CarModel? car) async {
+  void _showBookingDetails(BuildContext context, BookingEntity booking, CarEntity? car) async {
     // Show loading dialog
     showDialog(
       context: context,
@@ -685,11 +722,11 @@ class _AdminBookingsPageState extends ConsumerState<AdminBookingsPage> {
                   ),
                 )
               else
-                Row(
+                const Row(
                   children: [
-                    const Icon(Icons.phone, size: 16, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    const Text('Phone: N/A'),
+                    Icon(Icons.phone, size: 16, color: Colors.grey),
+                    SizedBox(width: 4),
+                    Text('Phone: N/A'),
                   ],
                 ),
               Text('Customer ID: ${booking.userId}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),

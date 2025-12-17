@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import 'package:car_maintenance_system_new/core/providers/auth_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/booking_provider.dart';
-import 'package:car_maintenance_system_new/core/models/booking_model.dart';
+import 'package:car_maintenance_system_new/features/auth/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/presentation/viewmodels/booking_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/domain/entities/booking_entity.dart';
 import 'package:car_maintenance_system_new/core/services/firebase_service.dart';
 import 'package:car_maintenance_system_new/core/models/user_model.dart' as app_models;
 
@@ -27,10 +27,10 @@ class _TechnicianProfilePageState extends ConsumerState<TechnicianProfilePage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final user = ref.read(authProvider).user;
+      final user = ref.read(authViewModelProvider).user;
       if (user != null) {
         // Load bookings for stats
-        ref.read(bookingProvider.notifier).loadBookings(user.id, role: 'technician');
+        ref.read(bookingViewModelProvider.notifier).loadBookings(user.id, role: 'technician');
         // Load user data for editing
         _loadUserData();
         _loadUserFullData();
@@ -39,7 +39,7 @@ class _TechnicianProfilePageState extends ConsumerState<TechnicianProfilePage> {
   }
 
   void _loadUserData() {
-    final user = ref.read(authProvider).user;
+    final user = ref.read(authViewModelProvider).user;
     if (user != null) {
       _nameController.text = user.name;
       _phoneController.text = user.phone;
@@ -48,7 +48,7 @@ class _TechnicianProfilePageState extends ConsumerState<TechnicianProfilePage> {
 
   Future<void> _loadUserFullData() async {
     try {
-      final user = ref.read(authProvider).user;
+      final user = ref.read(authViewModelProvider).user;
       if (user == null) return;
 
       final doc = await FirebaseService.usersCollection.doc(user.id).get();
@@ -74,7 +74,7 @@ class _TechnicianProfilePageState extends ConsumerState<TechnicianProfilePage> {
     setState(() => _isLoading = true);
 
     try {
-      final user = ref.read(authProvider).user;
+      final user = ref.read(authViewModelProvider).user;
       if (user == null) throw 'User not found';
 
       await FirebaseFirestore.instance
@@ -112,8 +112,8 @@ class _TechnicianProfilePageState extends ConsumerState<TechnicianProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
-    final bookingState = ref.watch(bookingProvider);
+    final authState = ref.watch(authViewModelProvider);
+    final bookingState = ref.watch(bookingViewModelProvider);
     final user = authState.user;
 
     // Calculate real stats from bookings - ONLY jobs where technician is explicitly assigned
@@ -421,7 +421,7 @@ class _TechnicianProfilePageState extends ConsumerState<TechnicianProfilePage> {
                               await Future.delayed(const Duration(milliseconds: 100));
                               // Then sign out - router will handle navigation
                               if (mounted) {
-                                await ref.read(authProvider.notifier).signOut();
+                                await ref.read(authViewModelProvider.notifier).signOut();
                               }
                             },
                             style: ElevatedButton.styleFrom(

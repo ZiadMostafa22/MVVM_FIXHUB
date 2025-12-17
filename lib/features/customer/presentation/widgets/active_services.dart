@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
-import 'package:car_maintenance_system_new/core/providers/booking_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/car_provider.dart';
-import 'package:car_maintenance_system_new/core/models/booking_model.dart';
+import 'package:car_maintenance_system_new/features/booking/presentation/viewmodels/booking_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/car/presentation/viewmodels/car_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/domain/entities/booking_entity.dart';
 import 'package:car_maintenance_system_new/core/widgets/detailed_invoice_dialog.dart';
 
 class ActiveServices extends ConsumerWidget {
@@ -12,8 +12,8 @@ class ActiveServices extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bookingState = ref.watch(bookingProvider);
-    final carState = ref.watch(carProvider);
+    final bookingState = ref.watch(bookingViewModelProvider);
+    final carState = ref.watch(carViewModelProvider);
 
     // Filter for active services: inProgress or completedPendingPayment
     final activeBookings = bookingState.bookings.where((booking) {
@@ -64,10 +64,13 @@ class ActiveServices extends ConsumerWidget {
         ),
         SizedBox(height: 16.h),
         ...activeBookings.map((booking) {
-        final car = carState.cars.firstWhere(
-          (c) => c.id == booking.carId,
-          orElse: () => carState.cars.first,
-        );
+        // Find the car for this booking
+        final car = carState.cars.where((c) => c.id == booking.carId).firstOrNull;
+        
+        // Skip this booking if car is not found
+        if (car == null) {
+          return const SizedBox.shrink();
+        }
 
         return Card(
           margin: EdgeInsets.only(bottom: 12.h),

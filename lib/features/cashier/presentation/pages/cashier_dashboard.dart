@@ -4,11 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:car_maintenance_system_new/core/providers/auth_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/booking_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/car_provider.dart';
+import 'package:car_maintenance_system_new/features/auth/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/presentation/viewmodels/booking_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/car/presentation/viewmodels/car_viewmodel.dart';
 import 'package:car_maintenance_system_new/features/shared/presentation/pages/settings_page.dart';
-import 'package:car_maintenance_system_new/core/models/booking_model.dart';
+import 'package:car_maintenance_system_new/features/booking/domain/entities/booking_entity.dart';
+import 'package:car_maintenance_system_new/features/shared/presentation/pages/notifications_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CashierDashboard extends ConsumerStatefulWidget {
@@ -21,6 +22,7 @@ class CashierDashboard extends ConsumerStatefulWidget {
 class _CashierDashboardState extends ConsumerState<CashierDashboard> {
   // Cache for user names
   final Map<String, String> _userNames = {};
+  Stream<int>? _pendingRefundsStream;
 
   Future<String> _getUserName(String userId) async {
     if (_userNames.containsKey(userId)) {
@@ -49,13 +51,20 @@ class _CashierDashboardState extends ConsumerState<CashierDashboard> {
   @override
   void initState() {
     super.initState();
+    // Setup real-time stream for pending refunds
+    _pendingRefundsStream = FirebaseFirestore.instance
+        .collection('refunds')
+        .where('status', isEqualTo: 'approved')
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final user = ref.read(authProvider).user;
+      final user = ref.read(authViewModelProvider).user;
       if (user != null) {
         // Load all bookings for cashier
-        ref.read(bookingProvider.notifier).startListening(user.id, role: 'cashier');
+        ref.read(bookingViewModelProvider.notifier).startListening(user.id, role: 'cashier');
         // Load car details
-        ref.read(carProvider.notifier).loadCars('');
+        ref.read(carViewModelProvider.notifier).loadCars('');
       }
     });
   }
@@ -63,7 +72,7 @@ class _CashierDashboardState extends ConsumerState<CashierDashboard> {
   @override
   void dispose() {
     try {
-      ref.read(bookingProvider.notifier).stopListening();
+      ref.read(bookingViewModelProvider.notifier).stopListening();
     } catch (e) {
       debugPrint('Dashboard disposed, listener cleanup skipped: $e');
     }
@@ -71,31 +80,24 @@ class _CashierDashboardState extends ConsumerState<CashierDashboard> {
   }
 
   Future<void> _refreshData() async {
-    final user = ref.read(authProvider).user;
+    final user = ref.read(authViewModelProvider).user;
     if (user != null) {
-      await ref.read(bookingProvider.notifier).loadBookings(user.id, role: 'cashier');
+      await ref.read(bookingViewModelProvider.notifier).loadBookings(user.id, role: 'cashier');
+      // Stream will auto-update, no need to manually reload
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
+    final authState = ref.watch(authViewModelProvider);
     final user = authState.user;
-    final bookingState = ref.watch(bookingProvider);
+    final bookingState = ref.watch(bookingViewModelProvider);
     
     // Filter bookings waiting for payment
     final pendingPayments = bookingState.bookings
         .where((b) => b.status == BookingStatus.completedPendingPayment)
         .toList();
     
-    // Debug logging
-    if (kDebugMode) {
-      print('💰 Cashier Dashboard - Total bookings: ${bookingState.bookings.length}');
-      print('💰 Cashier Dashboard - Pending payments: ${pendingPayments.length}');
-      for (var booking in pendingPayments) {
-        print('   - ${booking.id}: ${booking.status} (${booking.totalCost})');
-      }
-    }
     
     // Get today's completed payments
     final today = DateTime.now();
@@ -128,10 +130,51 @@ class _CashierDashboardState extends ConsumerState<CashierDashboard> {
               );
             },
           ),
+          // Notification bell with unread count
+          Consumer(
+            builder: (context, ref, child) {
+              final unreadAsync = ref.watch(unreadCountProvider);
+              return Stack(
+                alignment: Alignment.center,
+                children: [
           IconButton(
             icon: Icon(Icons.notifications, size: 22.sp),
             onPressed: () {
-              // TODO: Navigate to notifications
+                      context.push('/cashier/notifications');
+                    },
+                  ),
+                  unreadAsync.when(
+                    data: (count) => count > 0
+                        ? Positioned(
+                            right: 8,
+                            top: 8,
+                            child: Container(
+                              padding: EdgeInsets.all(4.w),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              constraints: BoxConstraints(
+                                minWidth: 16.w,
+                                minHeight: 16.w,
+                              ),
+                              child: Text(
+                                count > 9 ? '9+' : '$count',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10.sp,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                  ),
+                ],
+              );
             },
           ),
           IconButton(
@@ -152,7 +195,7 @@ class _CashierDashboardState extends ConsumerState<CashierDashboard> {
                         Navigator.pop(dialogContext);
                         await Future.delayed(const Duration(milliseconds: 100));
                         if (mounted) {
-                          await ref.read(authProvider.notifier).signOut();
+                          await ref.read(authViewModelProvider.notifier).signOut();
                         }
                       },
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -241,6 +284,89 @@ class _CashierDashboardState extends ConsumerState<CashierDashboard> {
                 ],
               ),
               
+              // Pending Refunds Alert Card (Real-time)
+              StreamBuilder<int>(
+                stream: _pendingRefundsStream,
+                builder: (context, snapshot) {
+                  final count = snapshot.data ?? 0;
+                  if (count == 0) return const SizedBox.shrink();
+                  
+                  return Column(
+                    children: [
+                      SizedBox(height: 16.h),
+                      InkWell(
+                        onTap: () => context.go('/cashier/refunds'),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.all(16.w),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Colors.red.shade400, Colors.red.shade600],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.red.withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: EdgeInsets.all(12.w),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  Icons.money_off,
+                                  color: Colors.white,
+                                  size: 28.sp,
+                                ),
+                              ),
+                              SizedBox(width: 16.w),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '$count Refund${count > 1 ? 's' : ''} Pending',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18.sp,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    SizedBox(height: 4.h),
+                                    Text(
+                                      'Tap to process approved refunds',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.9),
+                                        fontSize: 12.sp,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Icon(
+                                Icons.arrow_forward_ios,
+                                color: Colors.white,
+                                size: 20.sp,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              
               SizedBox(height: 24.h),
               
               // Pending Payments Section
@@ -297,7 +423,7 @@ class _CashierDashboardState extends ConsumerState<CashierDashboard> {
                       margin: EdgeInsets.only(bottom: 8.h),
                       child: Consumer(
                         builder: (context, ref, child) {
-                          final carState = ref.watch(carProvider);
+                          final carState = ref.watch(carViewModelProvider);
                           final car = carState.cars.isEmpty 
                               ? null 
                               : carState.cars.where((c) => c.id == booking.carId).firstOrNull;
@@ -409,7 +535,12 @@ class _CashierDashboardState extends ConsumerState<CashierDashboard> {
           ),
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
+      bottomNavigationBar: StreamBuilder<int>(
+        stream: _pendingRefundsStream,
+        builder: (context, snapshot) {
+          final refundsCount = snapshot.data ?? 0;
+          
+          return BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: 0,
         selectedFontSize: 12.sp,
@@ -424,24 +555,45 @@ class _CashierDashboardState extends ConsumerState<CashierDashboard> {
               context.go('/cashier/payments');
               break;
             case 2:
+              context.go('/cashier/refunds');
+              break;
+            case 3:
+              context.go('/cashier/reports');
+              break;
+            case 4:
               context.go('/cashier/profile');
               break;
           }
         },
-        items: const [
-          BottomNavigationBarItem(
+            items: [
+              const BottomNavigationBarItem(
             icon: Icon(Icons.dashboard),
             label: 'Dashboard',
           ),
-          BottomNavigationBarItem(
+              const BottomNavigationBarItem(
             icon: Icon(Icons.payment),
             label: 'Payments',
           ),
           BottomNavigationBarItem(
+                icon: refundsCount > 0
+                    ? Badge(
+                        label: Text('$refundsCount'),
+                        child: const Icon(Icons.receipt_long),
+                      )
+                    : const Icon(Icons.receipt_long),
+            label: 'Refunds',
+          ),
+              const BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart),
+            label: 'Reports',
+          ),
+              const BottomNavigationBarItem(
             icon: Icon(Icons.person),
             label: 'Profile',
           ),
         ],
+          );
+        },
       ),
     );
   }

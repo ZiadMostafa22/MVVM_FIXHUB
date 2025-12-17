@@ -4,9 +4,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:car_maintenance_system_new/core/providers/auth_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/booking_provider.dart';
-import 'package:car_maintenance_system_new/core/models/booking_model.dart';
+import 'package:car_maintenance_system_new/features/auth/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/presentation/viewmodels/booking_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/domain/entities/booking_entity.dart';
 
 // Provider to fetch all users (technicians)
 final allUsersProvider = StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
@@ -30,10 +30,10 @@ class _AdminAnalyticsPageState extends ConsumerState<AdminAnalyticsPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final user = ref.read(authProvider).user;
+      final user = ref.read(authViewModelProvider).user;
       if (user != null) {
         // Start real-time listener for all bookings
-        ref.read(bookingProvider.notifier).startListening(user.id, role: 'admin');
+        ref.read(bookingViewModelProvider.notifier).startListening(user.id, role: 'admin');
       }
     });
   }
@@ -43,7 +43,7 @@ class _AdminAnalyticsPageState extends ConsumerState<AdminAnalyticsPage> {
     // Stop listening when page is disposed
     // Wrap in try-catch to handle cases where widget is already disposed during logout
     try {
-      ref.read(bookingProvider.notifier).stopListening();
+      ref.read(bookingViewModelProvider.notifier).stopListening();
     } catch (e) {
       // Widget was already disposed, safe to ignore
       debugPrint('Analytics page disposed, listener cleanup skipped: $e');
@@ -53,7 +53,7 @@ class _AdminAnalyticsPageState extends ConsumerState<AdminAnalyticsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final bookingState = ref.watch(bookingProvider);
+    final bookingState = ref.watch(bookingViewModelProvider);
     final usersAsync = ref.watch(allUsersProvider);
 
     final completedBookings = bookingState.bookings
@@ -90,9 +90,9 @@ class _AdminAnalyticsPageState extends ConsumerState<AdminAnalyticsPage> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
-              final user = ref.read(authProvider).user;
+              final user = ref.read(authViewModelProvider).user;
               if (user != null) {
-                ref.read(bookingProvider.notifier).loadBookings(user.id, role: 'admin');
+                ref.read(bookingViewModelProvider.notifier).loadBookings(user.id, role: 'admin');
               }
               ref.invalidate(allUsersProvider);
             },
@@ -334,7 +334,7 @@ class _AdminAnalyticsPageState extends ConsumerState<AdminAnalyticsPage> {
 
   Widget _buildTopTechnicians(
     BuildContext context,
-    List<BookingModel> completedBookings,
+    List<BookingEntity> completedBookings,
     List<Map<String, dynamic>> allUsers,
   ) {
     // Calculate stats for each technician

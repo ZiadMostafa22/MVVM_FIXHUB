@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum CarType { sedan, suv, hatchback, coupe, convertible, truck, van }
 
-class CarModel {
+class CarEntity {
   final String id;
   final String userId;
   final String make;
@@ -18,7 +18,7 @@ class CarModel {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  CarModel({
+  CarEntity({
     required this.id,
     required this.userId,
     required this.make,
@@ -35,8 +35,8 @@ class CarModel {
     required this.updatedAt,
   });
 
-  factory CarModel.fromMap(Map<String, dynamic> map) {
-    return CarModel(
+  factory CarEntity.fromMap(Map<String, dynamic> map) {
+    return CarEntity(
       id: map['id'] ?? '',
       userId: map['userId'] ?? '',
       make: map['make'] ?? '',
@@ -57,8 +57,8 @@ class CarModel {
     );
   }
 
-  factory CarModel.fromFirestore(Map<String, dynamic> map, String id) {
-    return CarModel(
+  factory CarEntity.fromFirestore(Map<String, dynamic> map, String id) {
+    return CarEntity(
       id: id,
       userId: map['userId'] ?? '',
       make: map['make'] ?? '',
@@ -116,7 +116,7 @@ class CarModel {
     };
   }
 
-  CarModel copyWith({
+  CarEntity copyWith({
     String? id,
     String? userId,
     String? make,
@@ -132,7 +132,7 @@ class CarModel {
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
-    return CarModel(
+    return CarEntity(
       id: id ?? this.id,
       userId: userId ?? this.userId,
       make: make ?? this.make,

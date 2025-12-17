@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
-import 'package:car_maintenance_system_new/core/providers/auth_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/booking_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/car_provider.dart';
-import 'package:car_maintenance_system_new/core/models/booking_model.dart';
+import 'package:car_maintenance_system_new/features/auth/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/presentation/viewmodels/booking_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/car/presentation/viewmodels/car_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/domain/entities/booking_entity.dart';
 import 'package:car_maintenance_system_new/core/utils/pdf_generator.dart';
 import 'package:car_maintenance_system_new/core/widgets/rating_dialog.dart';
 import 'package:car_maintenance_system_new/core/widgets/unified_filter_widget.dart';
@@ -21,6 +21,7 @@ class CustomerHistoryPage extends ConsumerStatefulWidget {
 class _CustomerHistoryPageState extends ConsumerState<CustomerHistoryPage> {
   String _selectedFilter = 'all';
   DateTimeRange? _dateRange;
+  final Set<String> _fetchingCars = {};
 
   @override
   void initState() {
@@ -31,22 +32,43 @@ class _CustomerHistoryPageState extends ConsumerState<CustomerHistoryPage> {
   }
 
   Future<void> _refreshData() async {
-    final user = ref.read(authProvider).user;
+    final user = ref.read(authViewModelProvider).user;
     if (user != null) {
-      await ref.read(bookingProvider.notifier).loadBookings(user.id);
-      await ref.read(carProvider.notifier).loadCars(user.id);
+      await ref.read(bookingViewModelProvider.notifier).loadBookings(user.id);
+      await ref.read(carViewModelProvider.notifier).loadCars(user.id);
     }
   }
 
 
   @override
   Widget build(BuildContext context) {
-    final bookingState = ref.watch(bookingProvider);
-    final carState = ref.watch(carProvider);
-    final user = ref.watch(authProvider).user;
+    final bookingState = ref.watch(bookingViewModelProvider);
+    final carState = ref.watch(carViewModelProvider);
+    final user = ref.watch(authViewModelProvider).user;
+
+    // Fetch missing cars when bookings change
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final booking in bookingState.bookings) {
+        if (booking.carId.isNotEmpty) {
+          final carExists = carState.cars.any((c) => c.id == booking.carId);
+          if (!carExists && !_fetchingCars.contains(booking.carId)) {
+            _fetchingCars.add(booking.carId);
+            ref.read(carViewModelProvider.notifier).getCarById(booking.carId).then((_) {
+              if (mounted) {
+                setState(() {
+                  _fetchingCars.remove(booking.carId);
+                });
+              } else {
+                _fetchingCars.remove(booking.carId);
+              }
+            });
+          }
+        }
+      }
+    });
 
     // Filter bookings by status - Create a mutable copy first
-    List<BookingModel> filteredBookings = List.from(bookingState.bookings);
+    List<BookingEntity> filteredBookings = List.from(bookingState.bookings);
     
     if (_selectedFilter != 'all') {
       filteredBookings = filteredBookings.where((booking) {
@@ -327,11 +349,12 @@ class _CustomerHistoryPageState extends ConsumerState<CustomerHistoryPage> {
                                       ],
                                     ),
                                     const SizedBox(height: 8),
-                                    if (car != null)
-                                      Text(
-                                        '${car.make} ${car.model} (${car.year})',
-                                        style: Theme.of(context).textTheme.bodyMedium,
-                                      ),
+                                    Text(
+                                      car != null 
+                                          ? '${car.make} ${car.model} (${car.year})'
+                                          : 'Loading...',
+                                      style: Theme.of(context).textTheme.bodyMedium,
+                                    ),
                                     const SizedBox(height: 4),
                                     Row(
                                       children: [
@@ -447,7 +470,7 @@ class _CustomerHistoryPageState extends ConsumerState<CustomerHistoryPage> {
                                                 builder: (dialogContext) => RatingDialog(
                                                   onSubmit: (rating, comment) async {
                                                     final success = await ref
-                                                        .read(bookingProvider.notifier)
+                                                        .read(bookingViewModelProvider.notifier)
                                                         .rateBooking(booking.id, rating, comment);
                                                     
                                                     // Use the captured ScaffoldMessenger instead of context
@@ -532,7 +555,7 @@ class _CustomerHistoryPageState extends ConsumerState<CustomerHistoryPage> {
     }
   }
 
-  void _showInvoiceDetails(BuildContext context, BookingModel booking, var car, var user) {
+  void _showInvoiceDetails(BuildContext context, BookingEntity booking, var car, var user) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -543,8 +566,7 @@ class _CustomerHistoryPageState extends ConsumerState<CustomerHistoryPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Booking ID: ${booking.id}'),
-              if (car != null)
-                Text('Vehicle: ${car.make} ${car.model}'),
+              Text('Vehicle: ${car != null ? "${car.make} ${car.model}" : "Loading..."}'),
               Text('Date: ${DateFormat('MMM dd, yyyy').format(booking.scheduledDate)}'),
               const Divider(height: 20),
               const Text('Service Items:',

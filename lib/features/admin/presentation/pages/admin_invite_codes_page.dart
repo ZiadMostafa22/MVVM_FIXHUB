@@ -149,7 +149,7 @@ class _AdminInviteCodesPageState extends State<AdminInviteCodesPage> {
           } else {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
+                const SnackBar(
                   content: Text('Code deactivated (users remain active)'),
                   backgroundColor: Colors.green,
                 ),
@@ -212,7 +212,7 @@ class _AdminInviteCodesPageState extends State<AdminInviteCodesPage> {
           } else {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
+                const SnackBar(
                   content: Text('Code activated (users remain disabled)'),
                   backgroundColor: Colors.orange,
                 ),

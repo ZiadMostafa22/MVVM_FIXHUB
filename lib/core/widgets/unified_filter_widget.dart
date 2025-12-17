@@ -84,7 +84,7 @@ class UnifiedFilterWidget extends StatelessWidget {
                     label: Text(
                       filterOptions.firstWhere(
                         (option) => option.value == selectedFilter,
-                        orElse: () => FilterOption('all', 'All'),
+                        orElse: () => const FilterOption('all', 'All'),
                       ).label,
                       style: TextStyle(fontSize: 12.sp),
                     ),

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
-import 'package:car_maintenance_system_new/core/models/booking_model.dart';
-import 'package:car_maintenance_system_new/core/models/car_model.dart';
+import 'package:car_maintenance_system_new/features/booking/domain/entities/booking_entity.dart';
+import 'package:car_maintenance_system_new/features/car/domain/entities/car_entity.dart';
 
 class DetailedInvoiceDialog extends StatelessWidget {
-  final BookingModel booking;
-  final CarModel? car;
+  final BookingEntity booking;
+  final CarEntity? car;
 
   const DetailedInvoiceDialog({
     super.key,
@@ -66,7 +66,7 @@ class DetailedInvoiceDialog extends StatelessWidget {
                       size: 20.sp,
                     ),
                     padding: EdgeInsets.zero,
-                    constraints: BoxConstraints(),
+                    constraints: const BoxConstraints(),
                   ),
                 ],
               ),

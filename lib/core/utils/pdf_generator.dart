@@ -3,14 +3,14 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
-import 'package:car_maintenance_system_new/core/models/booking_model.dart';
-import 'package:car_maintenance_system_new/core/models/car_model.dart';
+import 'package:car_maintenance_system_new/features/booking/domain/entities/booking_entity.dart';
+import 'package:car_maintenance_system_new/features/car/domain/entities/car_entity.dart';
 
 class PdfGenerator {
   static Future<void> generateAndShareInvoice(
     BuildContext context,
-    BookingModel booking,
-    CarModel? car,
+    BookingEntity booking,
+    CarEntity? car,
     dynamic customer, // Accept any customer object (User from auth or UserModel or Map)
   ) async {
     try {
@@ -136,9 +136,9 @@ class PdfGenerator {
                 // Service Type
                 pw.Container(
                   padding: const pw.EdgeInsets.all(10),
-                  decoration: pw.BoxDecoration(
+                  decoration: const pw.BoxDecoration(
                     color: PdfColors.blue50,
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                    borderRadius: pw.BorderRadius.all(pw.Radius.circular(8)),
                   ),
                   child: pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -213,11 +213,11 @@ class PdfGenerator {
                           children: [
                             pw.Text(
                               'Discount (${booking.discountPercentage}%):',
-                              style: pw.TextStyle(color: PdfColors.green800),
+                              style: const pw.TextStyle(color: PdfColors.green800),
                             ),
                             pw.Text(
                               '-\$${booking.discountAmount.toStringAsFixed(2)}',
-                              style: pw.TextStyle(color: PdfColors.green800),
+                              style: const pw.TextStyle(color: PdfColors.green800),
                             ),
                           ],
                         ),
@@ -270,9 +270,9 @@ class PdfGenerator {
                     pw.Container(
                       width: 200,
                       padding: const pw.EdgeInsets.all(10),
-                      decoration: pw.BoxDecoration(
+                      decoration: const pw.BoxDecoration(
                         color: PdfColors.green50,
-                        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                        borderRadius: pw.BorderRadius.all(pw.Radius.circular(8)),
                       ),
                       child: pw.Row(
                         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -376,9 +376,9 @@ class PdfGenerator {
   static pw.Widget _buildHeader() {
     return pw.Container(
       padding: const pw.EdgeInsets.all(16),
-      decoration: pw.BoxDecoration(
+      decoration: const pw.BoxDecoration(
         color: PdfColors.blue800,
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+        borderRadius: pw.BorderRadius.all(pw.Radius.circular(8)),
       ),
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -393,9 +393,9 @@ class PdfGenerator {
           ),
           pw.Container(
             padding: const pw.EdgeInsets.all(8),
-            decoration: pw.BoxDecoration(
+            decoration: const pw.BoxDecoration(
               color: PdfColors.white,
-              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+              borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
             ),
             child: pw.Text(
               'PAID',
@@ -411,7 +411,7 @@ class PdfGenerator {
     );
   }
 
-  static pw.Widget _buildServiceItemsTable(BookingModel booking) {
+  static pw.Widget _buildServiceItemsTable(BookingEntity booking) {
     return pw.Table(
       border: pw.TableBorder.all(color: PdfColors.grey400),
       children: [

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:car_maintenance_system_new/core/providers/auth_provider.dart';
-import 'package:car_maintenance_system_new/core/providers/car_provider.dart';
+import 'package:car_maintenance_system_new/features/auth/presentation/viewmodels/auth_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/car/presentation/viewmodels/car_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/customer/presentation/widgets/customer_bottom_nav_bar.dart';
 
 class CustomerCarsPage extends ConsumerStatefulWidget {
   const CustomerCarsPage({super.key});
@@ -16,16 +17,16 @@ class _CustomerCarsPageState extends ConsumerState<CustomerCarsPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final user = ref.read(authProvider).user;
+      final user = ref.read(authViewModelProvider).user;
       if (user != null) {
-        ref.read(carProvider.notifier).loadCars(user.id);
+        ref.read(carViewModelProvider.notifier).loadCars(user.id);
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final carState = ref.watch(carProvider);
+    final carState = ref.watch(carViewModelProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -149,7 +150,7 @@ class _CustomerCarsPageState extends ConsumerState<CustomerCarsPage> {
 
                               if (confirm == true) {
                                 final success = await ref
-                                    .read(carProvider.notifier)
+                                    .read(carViewModelProvider.notifier)
                                     .deleteCar(car.id);
                                 
                                 // Use the captured ScaffoldMessenger instead of context
@@ -172,6 +173,7 @@ class _CustomerCarsPageState extends ConsumerState<CustomerCarsPage> {
                     );
                   },
                 ),
+      bottomNavigationBar: CustomerBottomNavBar(context: context),
     );
   }
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:car_maintenance_system_new/core/providers/auth_provider.dart';
+import 'package:car_maintenance_system_new/features/auth/presentation/viewmodels/auth_viewmodel.dart';
 
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
@@ -36,7 +36,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
   Future<void> _handleRegister() async {
     if (_formKey.currentState!.validate()) {
-      final success = await ref.read(authProvider.notifier).signUp(
+      final success = await ref.read(authViewModelProvider.notifier).signUp(
         email: _emailController.text.trim(),
         password: _passwordController.text,
         name: _nameController.text.trim(),
@@ -56,7 +56,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         );
         // Navigation is handled automatically by the router
       } else if (mounted) {
-        final errorMessage = ref.read(authProvider).error ?? 'Registration failed. Please try again.';
+        final errorMessage = ref.read(authViewModelProvider).error ?? 'Registration failed. Please try again.';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errorMessage),
@@ -70,7 +70,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
+    final authState = ref.watch(authViewModelProvider);
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
     final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
@@ -252,9 +252,9 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     children: [
                       TextFormField(
                         controller: _inviteCodeController,
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           labelText: 'Invite Code *',
-                          prefixIcon: const Icon(Icons.vpn_key),
+                          prefixIcon: Icon(Icons.vpn_key),
                           isDense: true,
                           helperText: 'Enter the invite code provided by the administrator',
                           helperMaxLines: 2,

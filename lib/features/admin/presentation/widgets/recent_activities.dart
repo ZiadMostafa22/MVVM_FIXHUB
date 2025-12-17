@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:car_maintenance_system_new/core/providers/booking_provider.dart';
-import 'package:car_maintenance_system_new/core/models/booking_model.dart';
+import 'package:car_maintenance_system_new/features/booking/presentation/viewmodels/booking_viewmodel.dart';
+import 'package:car_maintenance_system_new/features/booking/domain/entities/booking_entity.dart';
 
 class RecentActivities extends ConsumerWidget {
   const RecentActivities({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bookingState = ref.watch(bookingProvider);
+    final bookingState = ref.watch(bookingViewModelProvider);
     
     // Get recent bookings (last 10)
     final recentBookings = [...bookingState.bookings];
@@ -109,7 +109,7 @@ class RecentActivities extends ConsumerWidget {
     );
   }
   
-  Map<String, dynamic> _createActivityFromBooking(BookingModel booking) {
+  Map<String, dynamic> _createActivityFromBooking(BookingEntity booking) {
     String title;
     String description;
     IconData icon;
